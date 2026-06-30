@@ -32,6 +32,18 @@ npm run dev      # 웹(5173) + API 프록시(4000) 동시 실행
 npm run build && npm run preview   # http://localhost:4000
 ```
 
+## 온라인 배포 (공개 URL 만들기)
+이 앱은 **Node 서버 1개**가 API + 화면을 모두 서빙하므로, Node 호스트에 올리면 공개 URL이 생깁니다.
+(GitHub Pages 같은 정적 호스팅은 백엔드 API가 없어 부적합)
+
+**Render.com 무료 배포 (`render.yaml` 포함):**
+1. [render.com](https://render.com) 가입 → **New + → Blueprint** → 이 깃허브 저장소 선택
+2. 환경변수 입력(대시보드): `APPLYHOME_SERVICE_KEY`, `MOLIT_SERVICE_KEY`, `KAKAO_REST_KEY`
+3. 배포되면 `https://zipchatgi.onrender.com` 형태의 공개 주소가 발급됩니다.
+
+> 빌드: `npm install && npm run build` · 실행: `node server/index.mjs` (PORT는 호스트가 주입)
+> Railway/Fly.io 등 다른 Node 호스트도 동일 명령으로 가능.
+
 ## PC 설치 앱 (Electron)
 개발 중 데스크톱 앱으로 실행:
 ```bash

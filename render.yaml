@@ -1,0 +1,17 @@
+# Render.com 배포 설정 (무료 Node 웹 서비스)
+# 1) https://render.com 가입 → New + → Blueprint → 이 깃허브 저장소 연결
+# 2) 환경변수(아래 키)는 Render 대시보드에서 직접 입력 (저장소엔 안 올림)
+services:
+  - type: web
+    name: zipchatgi
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.mjs
+    envVars:
+      - key: APPLYHOME_SERVICE_KEY
+        sync: false # 대시보드에서 입력 (청약 일정/분양가)
+      - key: MOLIT_SERVICE_KEY
+        sync: false # 대시보드에서 입력 (실거래가)
+      - key: KAKAO_REST_KEY
+        sync: false # 대시보드에서 입력 (지도 단지 위치)
