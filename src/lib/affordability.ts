@@ -12,6 +12,10 @@ export type UserProfile = {
   existingAnnualDebtPaymentWon: number // 기존 대출 연 원리금 상환액
   isFirstTime: boolean // 생애최초 주택구입 여부
   ownedHouses: number // 현재 보유 주택 수 (0 = 무주택)
+  // 가구 정보 (혜택 매칭용)
+  marriedWithin7yr: boolean // 혼인 7년 이내(또는 결혼예정) = 신혼부부
+  newbornWithin2yr: boolean // 2년 내 출산(임신 포함) = 신생아 가구
+  childrenCount: number // 미성년 자녀 수 (2 이상 = 다자녀)
 }
 
 export type AffordabilityResult = {

@@ -12,20 +12,50 @@
     "build": "vite build",
     "preview": "node server/index.mjs",
     "electron": "electron .",
-    "electron:dev": "concurrently -k -n WEB,API,ELE -c cyan,magenta,yellow \"vite\" \"node server/index.mjs\" \"electron .\""
+    "electron:dev": "concurrently -k -n WEB,API,ELE -c cyan,magenta,yellow \"vite\" \"node server/index.mjs\" \"electron .\"",
+    "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "fast-xml-parser": "^4.5.1"
+    "fast-xml-parser": "^4.5.1",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
+  },
+  "build": {
+    "appId": "com.budongsan.zipchatgi",
+    "productName": "집찾기",
+    "asar": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "server/**",
+      "dist/**",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": "portable",
+      "artifactName": "집찾기-${version}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "집찾기-${version}-portable.${ext}"
+    }
   }
 }

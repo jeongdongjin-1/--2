@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { fetchTrades } from './molit.mjs'
+import { fetchSubscriptions } from './applyhome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -21,13 +22,41 @@ function loadEnv() {
 loadEnv()
 
 const SERVICE_KEY = process.env.MOLIT_SERVICE_KEY || ''
+const APPLYHOME_KEY = process.env.APPLYHOME_SERVICE_KEY || SERVICE_KEY
 const PORT = Number(process.env.PORT || 4000)
+
+function isoDaysFromNow(days) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 
 const app = express()
 
 // 헬스/상태: 키 보유 여부만 노출(키 값은 절대 노출 안 함)
 app.get('/api/status', (_req, res) => {
-  res.json({ ok: true, hasKey: Boolean(SERVICE_KEY), now: new Date().toISOString() })
+  res.json({
+    ok: true,
+    hasKey: Boolean(SERVICE_KEY),
+    hasApplyhomeKey: Boolean(APPLYHOME_KEY),
+    now: new Date().toISOString(),
+  })
+})
+
+// 청약 일정: /api/subscriptions?from=2026-06-01&to=2026-09-30
+app.get('/api/subscriptions', async (req, res) => {
+  const fromIso = String(req.query.from || isoDaysFromNow(-30))
+  const toIsoStr = String(req.query.to || isoDaysFromNow(90))
+  try {
+    const { source, items } = await fetchSubscriptions({
+      serviceKey: APPLYHOME_KEY,
+      fromIso,
+      toIsoStr,
+    })
+    res.json({ source, from: fromIso, to: toIsoStr, count: items.length, items })
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) })
+  }
 })
 
 // 실거래가 조회: /api/trades?lawd=11680&ymd=202605

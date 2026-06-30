@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   SPECIAL_SUPPLY,
   SUBSCRIPTION_EVENTS,
@@ -16,20 +16,48 @@ function ymKey(y: number, m: number) {
 }
 
 export default function CalendarTab() {
+  const [events, setEvents] = useState<SubscriptionEvent[]>(SUBSCRIPTION_EVENTS)
+  const [source, setSource] = useState<string>('')
+
+  // 청약홈 API에서 일정 로드 (실패/키없음 → 정적 샘플 유지)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/subscriptions')
+      .then((r) => r.json())
+      .then((json) => {
+        if (!alive) return
+        setSource(json.source || '')
+        if (Array.isArray(json.items) && json.items.length > 0) setEvents(json.items)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
   // 첫 이벤트가 있는 달을 기본으로
-  const firstEvent = SUBSCRIPTION_EVENTS[0]?.date ?? '2026-07-01'
+  const firstEvent = events[0]?.date ?? '2026-07-01'
   const [year, setYear] = useState(Number(firstEvent.slice(0, 4)))
   const [month, setMonth] = useState(Number(firstEvent.slice(5, 7)) - 1) // 0-based
-  const [selected, setSelected] = useState<string | null>(firstEvent)
+  const [selected, setSelected] = useState<string | null>(null)
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, SubscriptionEvent[]>()
-    for (const e of SUBSCRIPTION_EVENTS) {
+    for (const e of events) {
       if (!map.has(e.date)) map.set(e.date, [])
       map.get(e.date)!.push(e)
     }
     return map
-  }, [])
+  }, [events])
+
+  // 데이터 로드 후 첫 이벤트 달/날짜로 이동
+  useEffect(() => {
+    if (events.length === 0) return
+    const d = events[0].date
+    setYear(Number(d.slice(0, 4)))
+    setMonth(Number(d.slice(5, 7)) - 1)
+    setSelected(d)
+  }, [events])
 
   const monthHasEvents = useMemo(
     () => SUBSCRIPTION_EVENTS.filter((e) => e.date.startsWith(ymKey(year, month))),
@@ -136,10 +164,14 @@ export default function CalendarTab() {
         </aside>
       </div>
 
-      <p className="tiny-note">
-        ⚠️ 표시된 일정은 <b>샘플</b>입니다. 실제 분양·청약 일정은 <b>청약홈(applyhome.co.kr)</b> 또는
-        한국부동산원 청약홈 공공 API로 연동해 갱신할 수 있습니다.
-      </p>
+      {source === 'applyhome' ? (
+        <p className="tiny-note">✅ 한국부동산원 청약홈 공공 API 실시간 분양 일정 (수도권 APT)</p>
+      ) : (
+        <p className="tiny-note">
+          ⚠️ 표시된 일정은 <b>샘플</b>입니다(청약홈 API 키 미설정). 실제 분양·청약 일정은
+          <b> 청약홈(applyhome.co.kr)</b> 또는 한국부동산원 청약홈 공공 API로 자동 연동됩니다.
+        </p>
+      )}
     </div>
   )
 }

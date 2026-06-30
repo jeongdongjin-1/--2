@@ -4,15 +4,19 @@
 "내가 실제로 입주 가능한 매물"을 골라주는** 웹/PC 앱.
 
 ## 핵심 기능 (탭 구성)
-- **🏠 내가 살 수 있는 집** — 연소득·자산·부채·생애최초·보유주택수를 입력하면 DSR/LTV/정책 한도를
-  계산해 최대 구매가를 산출하고, 그 이하 실거래 매물만 강조.
+- **🏠 내가 살 수 있는 집** — 연소득·자산·부채·가구정보를 입력하면 DSR/LTV/정책 한도를 계산해
+  최대 구매가를 산출하고, 그 이하 실거래 매물만 강조. **내 프로필 기준으로 받을 수 있는 대출·혜택 자동 표시.**
+- **🗺️ 지도** — 서울·수도권 시군구를 지도 마커로 표시. **입주 가능 매물이 있는 지역은 초록**, 예산 초과는 빨강.
+  마커 클릭 시 중위 실거래가·입주 가능 건수 팝업. (Leaflet + OpenStreetMap, 키 불필요)
 - **💍 신혼·다자녀 혜택** — 신혼부부/신생아/다자녀 가구별 핵심 혜택 + 근거 정책 + 해당 정부 지원
   대출 상품(신생아 특례·디딤돌·버팀목 등)을 카드로 정리.
-- **📅 청약 캘린더** — 월 단위 달력에 청약 일정 표시 + 특별공급 유형(신혼/신생아/다자녀/생애최초/노부모) 안내.
+- **📅 청약 캘린더** — 월 단위 달력에 청약 일정 표시 + 특별공급 유형 안내.
+  **한국부동산원 청약홈 공공 API 연동**(키 미설정 시 샘플 일정 폴백).
 - **🎖️ 군인공제 비교** — 군인공제회 혜택을 정부 기금 대출·민간 시중은행과 항목별 비교표로 제시 + 추천 조합.
 - **정책 1일 단위 반영** — 대출/혜택/일정 데이터를 `src/data/*`에서 분리 관리. 수치만 갱신하면 즉시 반영.
-- **국부 실거래가** — 공공데이터포털 합법 API. 키 미설정 시 목업 데이터로 동작.
+- **공공 실거래가/청약 API** — 공공데이터포털 합법 API. 키 미설정 시 목업/샘플로 동작.
 - **개인정보 보호** — 입력값은 브라우저(localStorage)에만 저장, 서버 전송 없음.
+- **PC 설치 앱** — Electron portable .exe로 패키징(설치 불필요, 무관리자 권한).
 
 ## 실행
 ```bash
@@ -26,6 +30,17 @@ npm run dev      # 웹(5173) + API 프록시(4000) 동시 실행
 npm run build && npm run preview   # http://localhost:4000
 ```
 
+## PC 설치 앱 (Electron)
+개발 중 데스크톱 앱으로 실행:
+```bash
+npm run build && npm run electron
+```
+배포용 portable .exe 빌드(설치 불필요):
+```bash
+npm run dist          # → release/집찾기-<버전>-portable.exe
+```
+> 이 PC에서는 NSIS 설치본이 winCodeSign 심볼릭 링크 권한 오류를 일으키므로 **portable 타겟**을 사용합니다.
+
 ## 실거래가 API 키 설정 (선택)
 1. [공공데이터포털](https://www.data.go.kr) 가입 → **"국토교통부_아파트 매매 실거래가 자료"** 활용신청
 2. `.env.example`을 `.env`로 복사 후 `MOLIT_SERVICE_KEY`에 일반 인증키(Decoding) 입력
@@ -33,28 +48,35 @@ npm run build && npm run preview   # http://localhost:4000
 
 ## 구조
 ```
-server/        실거래가 API 프록시(키 은닉) + 프로덕션 정적 서빙
+electron/
+  main.cjs     Electron 메인(내장 서버 기동 + 창 로드)
+server/        API 프록시(키 은닉) + 프로덕션 정적 서빙
   molit.mjs    실거래가 호출 + XML 파싱 + 목업 폴백
+  applyhome.mjs 청약홈 분양정보 호출 + 샘플 폴백
 src/
   data/         ★ 모두 1일 단위 갱신 대상 (수치는 참고용 샘플)
-    regions.ts      서울 25구 + 경기·인천 LAWD 코드
+    regions.ts      서울 25구 + 경기·인천 LAWD 코드 + 좌표
     policy.ts       대출/정책 규칙 (DSR·LTV·규제지역·한도)
     benefits.ts     신혼·다자녀·신생아 혜택 + 정부 지원 대출 상품
-    subscription.ts 청약 특별공급 유형 + 캘린더 일정
+    subscription.ts 청약 특별공급 유형 + 캘린더 일정(폴백)
     military.ts     군인공제 vs 정부기금 vs 민간 비교
   lib/
     affordability.ts  ★ DSR/LTV → 최대 구매가 계산 엔진
+    eligibility.ts    ★ 프로필 → 받을 수 있는 대출/혜택 판정
     profileStore.ts   개인정보 로컬 저장 + 동의 관리
   tabs/
-    MatchTab / BenefitsTab / CalendarTab / MilitaryTab
+    MatchTab / MapTab / BenefitsTab / CalendarTab / MilitaryTab
   App.tsx      탭 셸 + 개인정보 동의 게이트
 ```
 
 ## 로드맵
-- [ ] 지도 뷰(서울·수도권 마커, 가격 클러스터)
+- [x] 지도 뷰(서울·수도권 마커, 입주가능 색상)
+- [x] 청약홈 공공 API 연동(샘플 → 실데이터)
+- [x] 혜택 ↔ 매칭 연결(프로필 기반 자격 자동 표시)
+- [x] Electron 패키징(portable .exe)
 - [ ] 정책 일일 브리핑(금융위·HUG 공지 요약) + 변화 알림
-- [ ] Electron 패키징(PC 설치 앱)
 - [ ] 실거래가 캐시/여러 달 합산, 평형·연식 필터
+- [ ] 지도 마커에 실제 단지 좌표(지오코딩)
 
 ## ⚠️ 주의
 - `src/data/policy.ts`의 수치는 **샘플 기본값**입니다. 실제 시행 중인 규제·금리·규제지역은

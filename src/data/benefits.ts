@@ -13,7 +13,8 @@ export type LoanProduct = {
   name: string
   category: '구입자금' | '전세자금'
   households: Household[] // 어떤 가구 유형에 해당하는지
-  incomeLimit: string // 부부합산 연소득 요건
+  incomeLimit: string // 부부합산 연소득 요건(표시용)
+  incomeLimitWon: number // 소득 요건 숫자값(자격 판정용)
   assetLimit?: string // 순자산 요건
   targetPrice: string // 대상 주택/보증금 한도
   loanLimit: string // 대출 한도
@@ -30,6 +31,7 @@ export const LOAN_PRODUCTS: LoanProduct[] = [
     category: '구입자금',
     households: ['newborn', 'newlywed'],
     incomeLimit: '부부합산 1.3억 이하 (완화 시 2억까지 추진)',
+    incomeLimitWon: 130_000_000,
     assetLimit: '순자산 4.69억 이하',
     targetPrice: '주택가격 9억 이하 · 전용 85㎡ 이하',
     loanLimit: '최대 5억',
@@ -47,6 +49,7 @@ export const LOAN_PRODUCTS: LoanProduct[] = [
     category: '구입자금',
     households: ['newlywed'],
     incomeLimit: '부부합산 8.5천만 이하',
+    incomeLimitWon: 85_000_000,
     assetLimit: '순자산 4.69억 이하',
     targetPrice: '주택가격 6억 이하 · 전용 85㎡ 이하',
     loanLimit: '최대 4억',
@@ -63,6 +66,7 @@ export const LOAN_PRODUCTS: LoanProduct[] = [
     category: '구입자금',
     households: ['multichild'],
     incomeLimit: '부부합산 7천만 이하 (다자녀 우대 시 상향)',
+    incomeLimitWon: 70_000_000,
     targetPrice: '주택가격 6억 이하',
     loanLimit: '자녀 수에 따라 최대 4억',
     rate: '기본금리 - 자녀수 우대 (2자녀 0.5%p · 3자녀 이상 0.7%p)',
@@ -78,6 +82,7 @@ export const LOAN_PRODUCTS: LoanProduct[] = [
     category: '전세자금',
     households: ['newborn', 'newlywed'],
     incomeLimit: '부부합산 1.3억 이하',
+    incomeLimitWon: 130_000_000,
     targetPrice: '보증금 수도권 5억 이하 (지방 4억)',
     loanLimit: '최대 3억',
     rate: '연 1.1 ~ 3.0%',
@@ -90,6 +95,7 @@ export const LOAN_PRODUCTS: LoanProduct[] = [
     category: '전세자금',
     households: ['newlywed'],
     incomeLimit: '부부합산 7.5천만 이하',
+    incomeLimitWon: 75_000_000,
     targetPrice: '보증금 수도권 4억 이하 (지방 3억)',
     loanLimit: '수도권 최대 3억',
     rate: '연 1.5 ~ 2.7%',

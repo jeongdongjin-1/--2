@@ -8,6 +8,7 @@ import {
   type UserProfile,
 } from '../lib/affordability'
 import { loadProfile, saveProfile } from '../lib/profileStore'
+import { evaluateEligibility } from '../lib/eligibility'
 
 type Trade = {
   apt: string
@@ -62,6 +63,8 @@ export default function MatchTab() {
     () => computeAffordability(profile, CURRENT_POLICY, regulated),
     [profile, regulated]
   )
+
+  const elig = useMemo(() => evaluateEligibility(profile), [profile])
 
   async function loadTrades() {
     setLoading(true)
@@ -148,6 +151,66 @@ export default function MatchTab() {
             />
             생애최초 주택구입
           </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={profile.marriedWithin7yr}
+              onChange={(e) => set('marriedWithin7yr', e.target.checked)}
+            />
+            혼인 7년 이내 (신혼부부)
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={profile.newbornWithin2yr}
+              onChange={(e) => set('newbornWithin2yr', e.target.checked)}
+            />
+            2년 내 출산·임신 (신생아)
+          </label>
+          <Field label="미성년 자녀 수">
+            <input
+              type="number"
+              min={0}
+              value={profile.childrenCount}
+              onChange={(e) => set('childrenCount', Number(e.target.value))}
+            />
+          </Field>
+        </section>
+
+        <section className="panel elig-panel">
+          <h2>받을 수 있는 혜택</h2>
+          {!elig.hasAny && (
+            <p className="elig-empty">
+              혼인 7년 이내·2년 내 출산·자녀 2명 이상 중 하나라도 해당하면
+              신혼·신생아·다자녀 전용 저리 대출 자격이 생겨요. 위에서 체크해보세요.
+            </p>
+          )}
+          {elig.hasAny && (
+            <>
+              <div className="elig-tags">
+                {elig.matchedInfo.map((h) => (
+                  <span key={h.key} className="elig-tag">{h.emoji} {h.title}</span>
+                ))}
+              </div>
+              <ul className="elig-products">
+                {elig.products.map((ep) => (
+                  <li key={ep.product.id} className={ep.incomeOk ? 'ok' : 'warn'}>
+                    <div className="ep-top">
+                      <span className={`ep-mark ${ep.incomeOk ? 'ok' : 'warn'}`}>
+                        {ep.incomeOk ? '✓' : '!'}
+                      </span>
+                      <b>{ep.product.name}</b>
+                      <span className="ep-rate">{ep.product.rate.split('(')[0].trim()}</span>
+                    </div>
+                    <div className="ep-note">{ep.note} · 한도 {ep.product.loanLimit}</div>
+                  </li>
+                ))}
+              </ul>
+              <p className="tiny-note">
+                정확한 자격·우대금리는 <b>기금e든든</b>에서 확인하세요. 자세한 혜택은 ‘신혼·다자녀 혜택’ 탭 참고.
+              </p>
+            </>
+          )}
         </section>
 
         <section className="panel result-panel">

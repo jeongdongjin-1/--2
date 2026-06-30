@@ -12,6 +12,9 @@ export const DEFAULT_PROFILE: UserProfile = {
   existingAnnualDebtPaymentWon: 0,
   isFirstTime: true,
   ownedHouses: 0,
+  marriedWithin7yr: false,
+  newbornWithin2yr: false,
+  childrenCount: 0,
 }
 
 export function loadProfile(): UserProfile {
