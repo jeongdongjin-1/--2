@@ -60,8 +60,8 @@ export default function CalendarTab() {
   }, [events])
 
   const monthHasEvents = useMemo(
-    () => SUBSCRIPTION_EVENTS.filter((e) => e.date.startsWith(ymKey(year, month))),
-    [year, month]
+    () => events.filter((e) => e.date.startsWith(ymKey(year, month))),
+    [events, year, month]
   )
 
   // 달력 칸 구성
