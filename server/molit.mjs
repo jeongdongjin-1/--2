@@ -21,13 +21,27 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
   url.searchParams.set('numOfRows', String(rows))
   url.searchParams.set('pageNo', '1')
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  const text = await res.text()
-  const json = parser.parse(text)
+  let text
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    text = await res.text()
+  } catch {
+    // 네트워크 오류 → 목업 폴백
+    return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
+  }
+
+  let json
+  try {
+    json = parser.parse(text)
+  } catch {
+    json = null
+  }
 
   const header = json?.response?.header
-  if (header && String(header.resultCode) !== '00' && header.resultCode !== 0) {
-    throw new Error(`MOLIT API error: ${header.resultCode} ${header.resultMsg}`)
+  const code = header ? String(header.resultCode) : null
+  // 성공 코드 '00'이 아니면(인증실패 'Unauthorized', 오류, 비정상 응답) 목업으로 폴백
+  if (code !== '00') {
+    return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
   }
 
   let items = json?.response?.body?.items?.item ?? []

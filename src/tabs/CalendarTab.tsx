@@ -4,6 +4,60 @@ import {
   SUBSCRIPTION_EVENTS,
   type SubscriptionEvent,
 } from '../data/subscription'
+import { formatWon } from '../lib/affordability'
+
+type Model = { ty: string; exclusiveArea: number; pyeong: number; supplyArea: number; hshld: number; priceWon: number }
+
+// 평형별 분양가 + 실제 특별공급 유형 (선택 시 지연 로드)
+function PriceModels({ hmNo }: { hmNo?: string }) {
+  const [data, setData] = useState<{ models: Model[]; specialTypes: string[] } | null>(null)
+  const [state, setState] = useState<'idle' | 'loading' | 'error' | 'done'>('idle')
+
+  useEffect(() => {
+    if (!hmNo) return
+    setState('loading')
+    fetch(`/api/subscription-models?hmNo=${encodeURIComponent(hmNo)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) { setState('error'); return }
+        setData({ models: j.models || [], specialTypes: j.specialTypes || [] })
+        setState('done')
+      })
+      .catch(() => setState('error'))
+  }, [hmNo])
+
+  if (!hmNo) return null
+  if (state === 'loading') return <div className="pm-load">평형별 분양가 불러오는 중…</div>
+  if (state === 'error' || !data) return null
+  if (data.models.length === 0 && data.specialTypes.length === 0) return null
+
+  return (
+    <div className="price-models">
+      {data.specialTypes.length > 0 && (
+        <div className="ev-hh">
+          {data.specialTypes.map((t) => <span key={t} className="hh-tag">{t}</span>)}
+        </div>
+      )}
+      {data.models.length > 0 && (
+        <table className="pm-table">
+          <thead>
+            <tr><th>주택형</th><th>전용</th><th>세대</th><th>분양가</th></tr>
+          </thead>
+          <tbody>
+            {data.models.map((m, i) => (
+              <tr key={i}>
+                <td>{m.ty}</td>
+                <td>{m.exclusiveArea}㎡<span className="py">·{m.pyeong}평</span></td>
+                <td>{m.hshld}</td>
+                <td className="pm-price">{formatWon(m.priceWon)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
 
 const TYPE_LABEL: Record<SubscriptionEvent['type'], string> = {
   special: '특별공급',
@@ -139,10 +193,15 @@ export default function CalendarTab() {
                 <div className="ev-region">{e.region}{e.priceNote ? ` · ${e.priceNote}` : ''}</div>
                 {e.address && <div className="ev-addr">📍 {e.address}</div>}
                 {e.winnerDate && <div className="ev-addr">🏆 당첨자발표 {e.winnerDate}</div>}
-                {e.households.length > 0 && (
-                  <div className="ev-hh">
-                    {e.households.map((h) => <span key={h} className="hh-tag">{h}</span>)}
-                  </div>
+                {/* 평형별 분양가 + 실제 특별공급 유형 (hmNo 있으면 지연 로드) */}
+                {e.hmNo ? (
+                  <PriceModels hmNo={e.hmNo} />
+                ) : (
+                  e.households.length > 0 && (
+                    <div className="ev-hh">
+                      {e.households.map((h) => <span key={h} className="hh-tag">{h}</span>)}
+                    </div>
+                  )
                 )}
                 {e.url && (
                   <a className="ev-link" href={e.url} target="_blank" rel="noreferrer">

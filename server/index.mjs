@@ -5,7 +5,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { fetchTrades } from './molit.mjs'
-import { fetchSubscriptions } from './applyhome.mjs'
+import { fetchSubscriptions, fetchSubscriptionModels } from './applyhome.mjs'
 import { geocode } from './geocode.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -68,6 +68,18 @@ app.get('/api/subscriptions', async (req, res) => {
       toIsoStr,
     })
     res.json({ source, from: fromIso, to: toIsoStr, count: items.length, items })
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) })
+  }
+})
+
+// 평형별 분양가 + 특별공급 유형: /api/subscription-models?hmNo=2026000219
+app.get('/api/subscription-models', async (req, res) => {
+  const hmNo = String(req.query.hmNo || '')
+  if (!hmNo) return res.status(400).json({ error: 'hmNo 필요' })
+  try {
+    const data = await fetchSubscriptionModels({ serviceKey: APPLYHOME_KEY, hmNo })
+    res.json({ hmNo, ...data })
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }

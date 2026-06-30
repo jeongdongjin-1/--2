@@ -64,6 +64,8 @@ export type SubscriptionEvent = {
   address?: string // 공급위치
   url?: string // 모집공고 URL(청약홈)
   winnerDate?: string // 당첨자 발표일 YYYY-MM-DD
+  hmNo?: string // 주택관리번호(평형별 분양가 조회용)
+  pbNo?: string // 공고번호
 }
 
 // 샘플 일정 (실데이터는 청약홈 API로 대체)

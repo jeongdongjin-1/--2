@@ -11,6 +11,8 @@
 
 const BASE =
   'https://api.odcloud.kr/api/ApplyhomeInfoDetailSvc/v1/getAPTLttotPblancDetail'
+const MDL_BASE =
+  'https://api.odcloud.kr/api/ApplyhomeInfoDetailSvc/v1/getAPTLttotPblancMdl'
 
 const METRO = ['서울', '경기', '인천']
 
@@ -41,7 +43,10 @@ function toEvents(row) {
   const supplyCo = row.TOT_SUPLY_HSHLDCO ? `${row.TOT_SUPLY_HSHLDCO}세대` : undefined
   const priceNote = [supplyCo, moveIn].filter(Boolean).join(' · ') || undefined
 
-  const base = { title, region, address: addr, url, winnerDate, priceNote }
+  const base = {
+    title, region, address: addr, url, winnerDate, priceNote,
+    hmNo: row.HOUSE_MANAGE_NO || '', pbNo: row.PBLANC_NO || '',
+  }
   const out = []
 
   const sp = toIso(row.SPSPLY_RCEPT_BGNDE)
@@ -101,6 +106,66 @@ export async function fetchSubscriptions({ serviceKey, fromIso, toIsoStr }) {
     .sort((a, b) => a.date.localeCompare(b.date))
 
   return { source: 'applyhome', items, totalCount: json.totalCount }
+}
+
+// ── 평형별 분양가 + 특별공급 유형별 세대수 (getAPTLttotPblancMdl) ──
+// 특별공급 세대수 필드 → 유형 라벨 매핑
+const SP_FIELDS = [
+  ['NWWDS_HSHLDCO', '신혼부부'],
+  ['NWBB_HSHLDCO', '신생아'],
+  ['MNYCH_HSHLDCO', '다자녀'],
+  ['LFE_FRST_HSHLDCO', '생애최초'],
+  ['OLD_PARNTS_SUPORT_HSHLDCO', '노부모부양'],
+  ['INSTT_RECOMEND_HSHLDCO', '기관추천'],
+  ['TRANSR_INSTT_ENFSN_HSHLDCO', '이전기관'],
+]
+
+export async function fetchSubscriptionModels({ serviceKey, hmNo }) {
+  if (!serviceKey || !hmNo) return { source: serviceKey ? 'applyhome' : 'mock', models: [], specialTypes: [] }
+
+  const url = new URL(MDL_BASE)
+  url.searchParams.set('serviceKey', serviceKey)
+  url.searchParams.set('page', '1')
+  url.searchParams.set('perPage', '50')
+  url.searchParams.set('cond[HOUSE_MANAGE_NO::EQ]', String(hmNo))
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+  const text = await res.text()
+  let json
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(`주택형 API 파싱 실패(HTTP ${res.status}): ${text.slice(0, 120)}`)
+  }
+  if (!res.ok || !Array.isArray(json?.data)) {
+    const msg = json?.msg || json?.message || JSON.stringify(json).slice(0, 120)
+    throw new Error(`주택형 API 오류(HTTP ${res.status}): ${msg}`)
+  }
+
+  const rows = json.data.filter((r) => String(r.HOUSE_MANAGE_NO) === String(hmNo))
+
+  const models = rows
+    .map((r) => {
+      const exclusive = parseFloat(String(r.HOUSE_TY)) || 0 // "084.9967A" → 84.9967
+      const priceWon = (Number(String(r.LTTOT_TOP_AMOUNT).replace(/[, ]/g, '')) || 0) * 10_000
+      return {
+        ty: String(r.HOUSE_TY || ''),
+        exclusiveArea: Math.round(exclusive * 10) / 10,
+        pyeong: Math.round(exclusive / 3.3058),
+        supplyArea: Number(r.SUPLY_AR) || 0,
+        hshld: Number(r.SUPLY_HSHLDCO) || 0,
+        priceWon,
+      }
+    })
+    .filter((m) => m.priceWon > 0)
+    .sort((a, b) => a.exclusiveArea - b.exclusiveArea)
+
+  // 특별공급 유형: 모든 모델 합산해 세대수>0인 유형만
+  const sums = {}
+  for (const r of rows) for (const [f] of SP_FIELDS) sums[f] = (sums[f] || 0) + (Number(r[f]) || 0)
+  const specialTypes = SP_FIELDS.filter(([f]) => sums[f] > 0).map(([, label]) => label)
+
+  return { source: 'applyhome', models, specialTypes }
 }
 
 function shiftIso(iso, days) {
