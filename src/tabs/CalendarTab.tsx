@@ -137,10 +137,17 @@ export default function CalendarTab() {
                   <b>{e.title.replace(/\s*\(샘플\)/, '')}</b>
                 </div>
                 <div className="ev-region">{e.region}{e.priceNote ? ` · ${e.priceNote}` : ''}</div>
+                {e.address && <div className="ev-addr">📍 {e.address}</div>}
+                {e.winnerDate && <div className="ev-addr">🏆 당첨자발표 {e.winnerDate}</div>}
                 {e.households.length > 0 && (
                   <div className="ev-hh">
                     {e.households.map((h) => <span key={h} className="hh-tag">{h}</span>)}
                   </div>
+                )}
+                {e.url && (
+                  <a className="ev-link" href={e.url} target="_blank" rel="noreferrer">
+                    청약홈 공고 보기 ↗
+                  </a>
                 )}
               </div>
             ))}

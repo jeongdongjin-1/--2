@@ -55,12 +55,15 @@ export const SPECIAL_SUPPLY: SpecialSupply[] = [
 
 // 청약 일정 이벤트
 export type SubscriptionEvent = {
-  date: string // YYYY-MM-DD (특별공급 접수일 기준)
+  date: string // YYYY-MM-DD (해당 접수일)
   title: string // 단지명
-  region: string // 지역
+  region: string // 지역(공급지역명)
   type: 'special' | 'first' | 'second' // 특별공급/1순위/2순위
   households: string[] // 해당 특별공급(라벨)
   priceNote?: string
+  address?: string // 공급위치
+  url?: string // 모집공고 URL(청약홈)
+  winnerDate?: string // 당첨자 발표일 YYYY-MM-DD
 }
 
 // 샘플 일정 (실데이터는 청약홈 API로 대체)
