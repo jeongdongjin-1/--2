@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { fetchTrades } from './molit.mjs'
 import { fetchSubscriptions } from './applyhome.mjs'
+import { geocode } from './geocode.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -23,6 +24,7 @@ loadEnv()
 
 const SERVICE_KEY = process.env.MOLIT_SERVICE_KEY || ''
 const APPLYHOME_KEY = process.env.APPLYHOME_SERVICE_KEY || SERVICE_KEY
+const KAKAO_KEY = process.env.KAKAO_REST_KEY || ''
 const PORT = Number(process.env.PORT || 4000)
 
 function isoDaysFromNow(days) {
@@ -39,8 +41,20 @@ app.get('/api/status', (_req, res) => {
     ok: true,
     hasKey: Boolean(SERVICE_KEY),
     hasApplyhomeKey: Boolean(APPLYHOME_KEY),
+    hasKakaoKey: Boolean(KAKAO_KEY),
     now: new Date().toISOString(),
   })
+})
+
+// 지오코딩: /api/geocode?q=강남구 래미안
+app.get('/api/geocode', async (req, res) => {
+  const q = String(req.query.q || '')
+  try {
+    const result = await geocode(q, KAKAO_KEY)
+    res.json({ query: q, result, hasKey: Boolean(KAKAO_KEY) })
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) })
+  }
 })
 
 // 청약 일정: /api/subscriptions?from=2026-06-01&to=2026-09-30

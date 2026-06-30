@@ -52,10 +52,12 @@ function normalize(it, lawdCode) {
   const floor = it.floor ?? it['층']
   const buildYear = it.buildYear ?? it['건축년도']
   const dong = it.umdNm ?? it['법정동']
+  const jibun = it.jibun ?? it['지번']
 
   return {
     apt: String(aptNm ?? '').trim(),
     dong: String(dong ?? '').trim(),
+    jibun: String(jibun ?? '').trim(),
     area: num(area), // 전용면적 m²
     priceWon: num(dealAmount) * 10_000, // 만원 → 원
     year: num(year),
