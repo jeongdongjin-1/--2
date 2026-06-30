@@ -1,0 +1,31 @@
+{
+  "name": "budongsan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "수도권 아파트 실거래가 + 내가 살 수 있는 집 매칭 (정책/대출 반영)",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API -c cyan,magenta \"vite\" \"node server/index.mjs\"",
+    "dev:web": "vite",
+    "dev:api": "node server/index.mjs",
+    "build": "vite build",
+    "preview": "node server/index.mjs",
+    "electron": "electron .",
+    "electron:dev": "concurrently -k -n WEB,API,ELE -c cyan,magenta,yellow \"vite\" \"node server/index.mjs\" \"electron .\""
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "fast-xml-parser": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  }
+}

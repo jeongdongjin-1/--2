@@ -1,0 +1,145 @@
+import { useMemo, useState } from 'react'
+import {
+  SPECIAL_SUPPLY,
+  SUBSCRIPTION_EVENTS,
+  type SubscriptionEvent,
+} from '../data/subscription'
+
+const TYPE_LABEL: Record<SubscriptionEvent['type'], string> = {
+  special: '특별공급',
+  first: '1순위',
+  second: '2순위',
+}
+
+function ymKey(y: number, m: number) {
+  return `${y}-${String(m + 1).padStart(2, '0')}`
+}
+
+export default function CalendarTab() {
+  // 첫 이벤트가 있는 달을 기본으로
+  const firstEvent = SUBSCRIPTION_EVENTS[0]?.date ?? '2026-07-01'
+  const [year, setYear] = useState(Number(firstEvent.slice(0, 4)))
+  const [month, setMonth] = useState(Number(firstEvent.slice(5, 7)) - 1) // 0-based
+  const [selected, setSelected] = useState<string | null>(firstEvent)
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, SubscriptionEvent[]>()
+    for (const e of SUBSCRIPTION_EVENTS) {
+      if (!map.has(e.date)) map.set(e.date, [])
+      map.get(e.date)!.push(e)
+    }
+    return map
+  }, [])
+
+  const monthHasEvents = useMemo(
+    () => SUBSCRIPTION_EVENTS.filter((e) => e.date.startsWith(ymKey(year, month))),
+    [year, month]
+  )
+
+  // 달력 칸 구성
+  const firstDay = new Date(year, month, 1).getDay() // 0=일
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  function shift(delta: number) {
+    let m = month + delta
+    let y = year
+    if (m < 0) { m = 11; y-- }
+    if (m > 11) { m = 0; y++ }
+    setMonth(m)
+    setYear(y)
+    setSelected(null)
+  }
+
+  const selectedEvents = selected ? eventsByDate.get(selected) ?? [] : []
+
+  return (
+    <div className="tab-scroll calendar-tab">
+      <div className="cal-layout">
+        <section className="panel cal-panel">
+          <div className="cal-head">
+            <button className="nav-btn" onClick={() => shift(-1)}>‹</button>
+            <h2>{year}년 {month + 1}월 청약 일정</h2>
+            <button className="nav-btn" onClick={() => shift(1)}>›</button>
+          </div>
+
+          <div className="cal-grid cal-dow">
+            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+              <div key={d} className={`dow ${i === 0 ? 'sun' : ''} ${i === 6 ? 'sat' : ''}`}>{d}</div>
+            ))}
+          </div>
+          <div className="cal-grid">
+            {cells.map((d, i) => {
+              if (d == null) return <div key={i} className="cal-cell empty-cell" />
+              const dateStr = `${ymKey(year, month)}-${String(d).padStart(2, '0')}`
+              const evs = eventsByDate.get(dateStr) ?? []
+              const dow = (firstDay + d - 1) % 7
+              return (
+                <div
+                  key={i}
+                  className={`cal-cell ${evs.length ? 'has-ev' : ''} ${selected === dateStr ? 'sel' : ''}`}
+                  onClick={() => evs.length && setSelected(dateStr)}
+                >
+                  <div className={`cal-date ${dow === 0 ? 'sun' : ''} ${dow === 6 ? 'sat' : ''}`}>{d}</div>
+                  {evs.slice(0, 2).map((e, j) => (
+                    <div key={j} className={`ev-chip ${e.type}`}>{e.title.replace(/\s*\(샘플\)/, '')}</div>
+                  ))}
+                  {evs.length > 2 && <div className="ev-more">+{evs.length - 2}</div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {monthHasEvents.length === 0 && (
+            <p className="tiny-note center">이 달에는 등록된 일정이 없습니다. ‹ › 로 이동해보세요.</p>
+          )}
+        </section>
+
+        <aside className="cal-side">
+          <section className="panel">
+            <h3>{selected ? `${selected} 일정` : '날짜를 선택하세요'}</h3>
+            {selectedEvents.length === 0 && <p className="tiny-note">선택한 날짜의 청약 일정이 여기에 표시됩니다.</p>}
+            {selectedEvents.map((e, i) => (
+              <div key={i} className="ev-detail">
+                <div className="ev-detail-top">
+                  <span className={`type-tag ${e.type}`}>{TYPE_LABEL[e.type]}</span>
+                  <b>{e.title.replace(/\s*\(샘플\)/, '')}</b>
+                </div>
+                <div className="ev-region">{e.region}{e.priceNote ? ` · ${e.priceNote}` : ''}</div>
+                {e.households.length > 0 && (
+                  <div className="ev-hh">
+                    {e.households.map((h) => <span key={h} className="hh-tag">{h}</span>)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+
+          <section className="panel">
+            <h3>특별공급 유형</h3>
+            <div className="ss-list">
+              {SPECIAL_SUPPLY.map((s) => (
+                <details key={s.key} className="ss-item">
+                  <summary>
+                    <b>{s.name}</b>
+                    <span className="ss-ratio">{s.ratio}</span>
+                  </summary>
+                  <div className="ss-for">{s.forHouseholds.map((f) => <span key={f} className="hh-tag sm">{f}</span>)}</div>
+                  <p>{s.note}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <p className="tiny-note">
+        ⚠️ 표시된 일정은 <b>샘플</b>입니다. 실제 분양·청약 일정은 <b>청약홈(applyhome.co.kr)</b> 또는
+        한국부동산원 청약홈 공공 API로 연동해 갱신할 수 있습니다.
+      </p>
+    </div>
+  )
+}
