@@ -157,9 +157,9 @@ export default function CalendarTab() {
       <div className="cal-layout">
         <section className="panel cal-panel">
           <div className="cal-head">
-            <button className="nav-btn" onClick={() => shift(-1)}>‹</button>
+            <button className="nav-btn" onClick={() => shift(-1)} aria-label="이전 달">‹</button>
             <h2>{year}년 {month + 1}월 청약 일정</h2>
-            <button className="nav-btn" onClick={() => shift(1)}>›</button>
+            <button className="nav-btn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           </div>
 
           <div className="cal-filters">

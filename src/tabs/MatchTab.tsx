@@ -7,7 +7,7 @@ import {
   isRegulated,
   type UserProfile,
 } from '../lib/affordability'
-import { loadProfile, saveProfile } from '../lib/profileStore'
+import { loadProfile, saveProfile, clearProfile, DEFAULT_PROFILE } from '../lib/profileStore'
 import { evaluateEligibility } from '../lib/eligibility'
 
 type Trade = {
@@ -190,6 +190,21 @@ export default function MatchTab() {
               onChange={(e) => set('childrenCount', Number(e.target.value))}
             />
           </Field>
+          <div className="privacy-row">
+            <span className="privacy-note">🔒 입력값은 이 브라우저에만 저장돼요</span>
+            <button
+              type="button"
+              className="reset-btn"
+              onClick={() => {
+                if (confirm('저장된 내 정보를 초기화할까요?')) {
+                  clearProfile()
+                  setProfile(DEFAULT_PROFILE)
+                }
+              }}
+            >
+              내 정보 초기화
+            </button>
+          </div>
         </section>
 
         <section className="panel elig-panel">
@@ -267,13 +282,13 @@ export default function MatchTab() {
           <button className="btn-primary" onClick={loadTrades} disabled={loading}>
             {loading ? '조회 중…' : '실거래 조회'}
           </button>
-          <select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value as typeof areaFilter)} title="전용면적">
+          <select aria-label="전용면적 필터" value={areaFilter} onChange={(e) => setAreaFilter(e.target.value as typeof areaFilter)} title="전용면적">
             <option value="all">전 평형</option>
             <option value="small">소형 (~59㎡)</option>
             <option value="mid">중형 (60~84㎡)</option>
             <option value="large">대형 (85㎡~)</option>
           </select>
-          <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as typeof ageFilter)} title="연식">
+          <select aria-label="연식 필터" value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as typeof ageFilter)} title="연식">
             <option value="all">전 연식</option>
             <option value="5">5년 이내</option>
             <option value="10">10년 이내</option>

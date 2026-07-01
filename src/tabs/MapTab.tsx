@@ -197,18 +197,18 @@ export default function MapTab() {
   return (
     <div className="map-tab">
       <div className="map-controls">
-        <select value={sido} onChange={(e) => {
+        <select aria-label="시도 선택" value={sido} onChange={(e) => {
           const s = e.target.value as Region['sido']
           setSido(s)
           setGu('all')
         }}>
           {SIDO_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={gu} onChange={(e) => setGu(e.target.value)}>
+        <select aria-label="시군구 선택" value={gu} onChange={(e) => setGu(e.target.value)}>
           <option value="all">전체 (구별 요약)</option>
           {guRegions.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
         </select>
-        <input className="ymd" value={ymd} maxLength={6}
+        <input className="ymd" aria-label="거래 연월(YYYYMM)" value={ymd} maxLength={6}
           onChange={(e) => setYmd(e.target.value.replace(/\D/g, ''))} placeholder="YYYYMM" />
         <span className="map-budget">내 예산(비규제) <b>{formatWon(budget)}</b></span>
         <span className="map-legend">
