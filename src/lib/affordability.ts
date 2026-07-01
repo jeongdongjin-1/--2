@@ -48,10 +48,11 @@ function resolveLtv(regulated: boolean, profile: UserProfile, policy: PolicyRule
   return regulated ? policy.ltv.regulated : policy.ltv.nonRegulated
 }
 
-// 사용자의 대출 여력(DSR 기준 상한)을 계산. 지역 무관.
-export function dsrLoanCap(profile: UserProfile, policy: PolicyRule) {
-  // 스트레스 DSR: 한도 산정용 금리 = 기준 + 스트레스
-  const stressedRate = policy.baseLoanRate + policy.stressRate
+// 사용자의 대출 여력(DSR 기준 상한)을 계산. 규제 여부에 따라 스트레스 금리 차등.
+export function dsrLoanCap(profile: UserProfile, policy: PolicyRule, regulated: boolean) {
+  // 스트레스 DSR: 한도 산정용 금리 = 기준 + 스트레스(규제/비규제 차등)
+  const stress = regulated ? policy.stressRateRegulated : policy.stressRateNonRegulated
+  const stressedRate = policy.baseLoanRate + stress
   // 연간 상환 여력 = 소득*DSR한도 - 기존부채 원리금
   const annualCapacity = profile.annualIncomeWon * policy.dsrLimit - profile.existingAnnualDebtPaymentWon
   const monthlyCapacity = Math.max(0, annualCapacity / 12)
@@ -59,43 +60,47 @@ export function dsrLoanCap(profile: UserProfile, policy: PolicyRule) {
   return { loanWon: Math.max(0, loan), monthlyCapacity, stressedRate }
 }
 
+// 주택가격 구간별 주담대 절대 한도(원)
+export function hardCapForPrice(priceWon: number, policy: PolicyRule): number {
+  for (const t of policy.loanCapTiers) {
+    if (priceWon <= t.maxPriceWon) return t.capWon
+  }
+  return policy.loanCapTiers[policy.loanCapTiers.length - 1]?.capWon ?? Infinity
+}
+
 // 핵심: 규제 여부에 따른 최대 구매가/대출 계산
+// 대출한도가 주택가격 구간(6억/4억/2억)에 따라 달라지므로 이분탐색으로 최대가를 구한다.
+//   조건: price ≤ cash + min(price*LTV, dsrCap, hardCap(price))
 export function computeAffordability(
   profile: UserProfile,
   policy: PolicyRule,
   regulated: boolean
 ): AffordabilityResult {
   const ltv = resolveLtv(regulated, profile, policy)
-  const { loanWon: dsrCap, monthlyCapacity } = dsrLoanCap(profile, policy)
-
-  // 대출 상한 = min(DSR 한도, 정책 절대 한도)
-  let loanCap = dsrCap
-  let binding: AffordabilityResult['binding'] = 'DSR'
-  if (policy.loanHardCapWon != null && policy.loanHardCapWon < loanCap) {
-    loanCap = policy.loanHardCapWon
-    binding = 'HARD_CAP'
-  }
-
-  // LTV가 가격에 비례하므로 max price 풀이:
-  //   price = cash + min(price*LTV, loanCap)
-  // LTV가 binding일 때: price = cash / (1 - LTV), loan = price*LTV
+  const { loanWon: dsrCap, monthlyCapacity } = dsrLoanCap(profile, policy, regulated)
   const cash = Math.max(0, profile.cashAssetsWon)
-  const priceIfLtvBinds = ltv < 1 ? cash / (1 - ltv) : Infinity
-  const loanAtThatPrice = priceIfLtvBinds * ltv
 
-  let maxPrice: number
-  let maxLoan: number
-  if (loanAtThatPrice <= loanCap) {
-    // LTV가 먼저 막음
-    maxPrice = priceIfLtvBinds
-    maxLoan = loanAtThatPrice
-    binding = 'LTV'
-  } else {
-    // DSR 또는 절대한도가 먼저 막음 — 대출은 loanCap로 고정
-    maxLoan = loanCap
-    maxPrice = cash + loanCap
-    // binding은 위에서 DSR/HARD_CAP로 이미 설정됨
+  const loanAt = (price: number) => Math.min(price * ltv, dsrCap, hardCapForPrice(price, policy))
+  const feasible = (price: number) => cash + loanAt(price) >= price
+
+  // 이분탐색 상한: 자기자본 + 가능한 최대 대출(가장 큰 구간 한도와 DSR 중 큰 값)
+  const maxCap = Math.max(dsrCap, ...policy.loanCapTiers.map((t) => t.capWon))
+  let lo = 0
+  let hi = cash + maxCap + 1
+  for (let i = 0; i < 64; i++) {
+    const mid = (lo + hi) / 2
+    if (feasible(mid)) lo = mid
+    else hi = mid
   }
+  const maxPrice = lo
+  const cap = hardCapForPrice(maxPrice, policy)
+  const ltvLoan = maxPrice * ltv
+  const maxLoan = Math.min(ltvLoan, dsrCap, cap)
+
+  // 한도를 결정한 제약 판별(최소값 기준)
+  let binding: AffordabilityResult['binding'] = 'LTV'
+  if (dsrCap <= ltvLoan && dsrCap <= cap) binding = 'DSR'
+  else if (cap <= ltvLoan && cap <= dsrCap) binding = 'HARD_CAP'
 
   return {
     maxLoanWon: Math.round(maxLoan),

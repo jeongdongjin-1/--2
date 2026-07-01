@@ -224,6 +224,10 @@ export default function MatchTab() {
           <div className="kv"><span>적용 LTV</span><b>{Math.round(afford.appliedLtv * 100)}%{regulated ? ' (규제지역)' : ''}</b></div>
           <div className="kv"><span>월 상환 여력</span><b>{formatWon(afford.monthlyPaymentCapWon)}</b></div>
           <div className="binding">한도 결정: <b>{bindingLabel(afford.binding)}</b></div>
+          <p className="disclaimer">
+            ⓘ 참고용 추정치입니다. 실제 대출 한도·금리는 은행 심사(소득·신용·부채 등)에 따라 달라지며,
+            매물 가격은 <b>과거 실거래가</b>(현재 호가 아님) 기준입니다.
+          </p>
         </section>
       </aside>
 
@@ -258,7 +262,7 @@ export default function MatchTab() {
 
         <div className="result-head">
           <div>
-            <b>{region?.name}</b> · {ymd.slice(0, 4)}년 {ymd.slice(4, 6)}월 ·
+            <b>{region?.name}</b> · {ymd.slice(0, 4)}년 {ymd.slice(4, 6)}월 <span className="muted-inline">실거래</span> ·
             총 {cards.length}건 중 <b className="ok">{affordableCount}건</b> 입주 가능
           </div>
           <div className="source">

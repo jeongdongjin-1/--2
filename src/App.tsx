@@ -55,9 +55,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">🏠 집찾기 <span>· 수도권 아파트</span></div>
-        <div className="policy-pill" title={CURRENT_POLICY.note}>
-          정책 기준일 {CURRENT_POLICY.effectiveDate} · DSR {Math.round(CURRENT_POLICY.dsrLimit * 100)}%
-          {CURRENT_POLICY.loanHardCapWon ? ` · 한도 ${formatWon(CURRENT_POLICY.loanHardCapWon)}` : ''}
+        <div className="policy-pill" title={`${CURRENT_POLICY.note}\n출처: ${CURRENT_POLICY.sources.join(', ')}`}>
+          정책 {CURRENT_POLICY.effectiveDate} · DSR {Math.round(CURRENT_POLICY.dsrLimit * 100)}% · 규제 LTV{' '}
+          {Math.round(CURRENT_POLICY.ltv.regulated * 100)}% · 한도 6/4/2억
         </div>
       </header>
 
