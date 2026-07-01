@@ -35,13 +35,25 @@ function isoDaysFromNow(days) {
 
 const app = express()
 
-// 헬스/상태: 키 보유 여부만 노출(키 값은 절대 노출 안 함)
+// 키 지문: 값 자체는 노출하지 않고 길이/앞4/뒤4자리만(오입력·공백 진단용)
+function fp(k) {
+  if (!k) return null
+  const t = k // 원본 그대로(공백 포함 여부 확인 위해 trim 안 함)
+  return { len: t.length, head: t.slice(0, 4), tail: t.slice(-4), trimmedLen: t.trim().length }
+}
+
+// 헬스/상태: 키 보유 여부 + 지문(값은 노출 안 함)
 app.get('/api/status', (_req, res) => {
   res.json({
     ok: true,
     hasKey: Boolean(SERVICE_KEY),
     hasApplyhomeKey: Boolean(APPLYHOME_KEY),
     hasKakaoKey: Boolean(KAKAO_KEY),
+    keyFp: {
+      molit: fp(SERVICE_KEY),
+      applyhome: fp(APPLYHOME_KEY),
+      kakao: fp(KAKAO_KEY),
+    },
     now: new Date().toISOString(),
   })
 })
