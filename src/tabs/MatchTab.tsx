@@ -53,6 +53,7 @@ export default function MatchTab() {
   const [onlyAffordable, setOnlyAffordable] = useState(true)
   const [areaFilter, setAreaFilter] = useState<'all' | 'small' | 'mid' | 'large'>('all')
   const [ageFilter, setAgeFilter] = useState<'all' | '5' | '10' | '20' | 'old'>('all')
+  const [propType, setPropType] = useState<'apt' | 'offi' | 'villa'>('apt')
 
   useEffect(() => {
     saveProfile(profile)
@@ -73,7 +74,7 @@ export default function MatchTab() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/trades?lawd=${lawd}&ymd=${ymd}`)
+      const res = await fetch(`/api/trades?lawd=${lawd}&ymd=${ymd}&type=${propType}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || '조회 실패')
       setTrades(json.items)
@@ -90,7 +91,7 @@ export default function MatchTab() {
   useEffect(() => {
     loadTrades()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [propType])
 
   const cards: AptCard[] = useMemo(() => {
     const map = new Map<string, Trade>()
@@ -260,6 +261,20 @@ export default function MatchTab() {
       </aside>
 
       <main className="content">
+        <div className="proptype-tabs" role="tablist" aria-label="주택 유형">
+          {([['apt', '🏢 아파트'], ['offi', '🏬 오피스텔'], ['villa', '🏘️ 빌라']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={propType === k}
+              className={`ptype ${propType === k ? 'on' : ''}`}
+              onClick={() => setPropType(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <section className="filters">
           <select value={sido} onChange={(e) => {
             const s = e.target.value as Region['sido']

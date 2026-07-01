@@ -1,9 +1,13 @@
-// 국토교통부 아파트 매매 실거래가 API 클라이언트 + XML 파싱.
-// 키가 없으면 목업 데이터로 폴백한다.
+// 국토교통부 매매 실거래가 API 클라이언트 + XML 파싱.
+// 아파트/오피스텔/연립다세대(빌라) 3종 지원. 키가 없거나 미승인이면 목업 폴백.
+// ※ 각 유형은 data.go.kr에서 별도 활용신청 필요(아파트만 신청 시 오피스텔·빌라는 목업).
 import { XMLParser } from 'fast-xml-parser'
 
-const API_URL =
-  'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade'
+const API_URLS = {
+  apt: 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade',
+  offi: 'https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade',
+  villa: 'https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade',
+}
 
 const parser = new XMLParser({ ignoreAttributes: false, trimValues: true })
 
@@ -44,13 +48,14 @@ async function fetchMolitPage(baseUrl, pageNo, retries = 3) {
   return null
 }
 
-// 실거래가 조회. totalCount가 rows보다 크면 여러 페이지를 합산한다(200건 초과 달 누락 방지).
-export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 1000, maxItems = 3000 }) {
+// 실거래가 조회. type: 'apt'|'offi'|'villa'. totalCount 초과 시 여러 페이지 합산.
+export async function fetchTrades({ lawdCode, dealYmd, serviceKey, type = 'apt', rows = 1000, maxItems = 3000 }) {
+  const apiUrl = API_URLS[type] || API_URLS.apt
   if (!serviceKey) {
-    return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd) }
+    return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd, type) }
   }
 
-  const base = new URL(API_URL)
+  const base = new URL(apiUrl)
   base.searchParams.set('serviceKey', serviceKey)
   base.searchParams.set('LAWD_CD', lawdCode)
   base.searchParams.set('DEAL_YMD', dealYmd)
@@ -59,7 +64,7 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 1000, 
 
   const first = await fetchMolitPage(baseStr, 1)
   if (!first) {
-    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
+    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd, type) }
   }
 
   let raw = first.items
@@ -80,9 +85,11 @@ function num(v) {
 }
 
 function normalize(it, lawdCode) {
-  // 신 API 필드명. 일부 응답은 한글 필드일 수 있어 양쪽 모두 대응.
+  // 신 API 필드명. 유형별 단지명 필드가 다름(아파트=aptNm, 오피스텔=offiNm, 빌라=mhouseNm).
   const dealAmount = it.dealAmount ?? it['거래금액']
-  const aptNm = it.aptNm ?? it['아파트']
+  const aptNm =
+    it.aptNm ?? it.offiNm ?? it.mhouseNm ??
+    it['아파트'] ?? it['단지'] ?? it['오피스텔'] ?? it['연립다세대']
   const area = it.excluUseAr ?? it['전용면적']
   const year = it.dealYear ?? it['년']
   const month = it.dealMonth ?? it['월']
@@ -108,18 +115,27 @@ function normalize(it, lawdCode) {
 }
 
 // ── 목업: 키 발급 전 UI/기능 확인용 (실제 단지명과 무관한 가짜 데이터) ──
-function mockTrades(lawdCode, dealYmd) {
+const MOCK_NAMES = {
+  apt: ['래미안', '자이', '힐스테이트', '푸르지오', '아이파크', 'e편한세상'],
+  offi: ['센트럴타워', '트리마제오피스텔', '스카이시티', '더샵스튜디오', '메트로시티'],
+  villa: ['행복빌라', '그린빌', '햇살연립', '누리하임', '해든타운'],
+}
+// 유형별 가격 수준(억) 배수 — 오피스텔·빌라는 아파트보다 저렴
+const MOCK_PRICE_MULT = { apt: 1, offi: 0.55, villa: 0.4 }
+
+function mockTrades(lawdCode, dealYmd, type = 'apt') {
   const seed = Number(lawdCode) + Number(dealYmd)
   const dongs = ['행복동', '한강동', '미래동', '푸른동']
-  const names = ['래미안', '자이', '힐스테이트', '푸르지오', '아이파크', 'e편한세상']
+  const names = MOCK_NAMES[type] || MOCK_NAMES.apt
+  const mult = MOCK_PRICE_MULT[type] ?? 1
   const out = []
   for (let i = 0; i < 24; i++) {
     const r = (seed * (i + 7)) % 97
-    const area = [39, 49, 59, 74, 84, 101, 114][r % 7]
+    const area = [24, 33, 39, 49, 59, 74, 84][r % 7]
     const base = lawdCode.startsWith('116') ? 18 : lawdCode.startsWith('11') ? 11 : 6 // 억 기준 대략
-    const priceEok = base + (r % 9) + area / 60
+    const priceEok = (base + (r % 9) + area / 60) * mult
     out.push({
-      apt: `${names[r % names.length]} ${100 + (r % 9)}단지`,
+      apt: type === 'apt' ? `${names[r % names.length]} ${100 + (r % 9)}단지` : `${names[r % names.length]} ${1 + (r % 9)}차`,
       dong: dongs[r % dongs.length],
       area,
       priceWon: Math.round(priceEok * 100_000_000),

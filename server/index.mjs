@@ -97,16 +97,17 @@ app.get('/api/subscription-models', async (req, res) => {
   }
 })
 
-// 실거래가 조회: /api/trades?lawd=11680&ymd=202605
+// 실거래가 조회: /api/trades?lawd=11680&ymd=202605&type=apt|offi|villa
 app.get('/api/trades', async (req, res) => {
   const lawdCode = String(req.query.lawd || '')
   const dealYmd = String(req.query.ymd || '')
+  const type = ['apt', 'offi', 'villa'].includes(String(req.query.type)) ? String(req.query.type) : 'apt'
   if (!/^\d{5}$/.test(lawdCode) || !/^\d{6}$/.test(dealYmd)) {
     return res.status(400).json({ error: 'lawd(5자리), ymd(6자리) 필요' })
   }
   try {
-    const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, serviceKey: SERVICE_KEY })
-    res.json({ source, reason, lawdCode, dealYmd, count: items.length, items })
+    const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, type, serviceKey: SERVICE_KEY })
+    res.json({ source, reason, type, lawdCode, dealYmd, count: items.length, items })
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }
