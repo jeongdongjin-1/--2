@@ -69,7 +69,7 @@ async function callOdcloud(serviceKey, { useCond, fromNotice, perPage }) {
   url.searchParams.set('perPage', String(perPage))
   if (useCond) url.searchParams.set('cond[RCRIT_PBLANC_DE::GTE]', fromNotice)
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) })
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) budongsan' } })
   const text = await res.text()
   let json
   try {
@@ -129,7 +129,7 @@ export async function fetchSubscriptionModels({ serviceKey, hmNo }) {
   url.searchParams.set('perPage', '50')
   url.searchParams.set('cond[HOUSE_MANAGE_NO::EQ]', String(hmNo))
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) budongsan' } })
   const text = await res.text()
   let json
   try {

@@ -23,7 +23,11 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
 
   let text
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    // data.go.kr 게이트웨이는 User-Agent 없는 요청을 차단(400 Request Blocked)하므로 반드시 설정
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 budongsan' },
+    })
     text = await res.text()
   } catch {
     // 네트워크 오류 → 목업 폴백
@@ -39,8 +43,9 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
 
   const header = json?.response?.header
   const code = header ? String(header.resultCode) : null
-  // 성공 코드 '00'이 아니면(인증실패 'Unauthorized', 오류, 비정상 응답) 목업으로 폴백
-  if (code !== '00') {
+  // 성공 코드는 '00' 또는 '000'(API마다 다름). 그 외(인증실패/오류/비정상)는 목업 폴백.
+  const ok = code === '00' || code === '000' || Number(code) === 0
+  if (!ok) {
     return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
   }
 
