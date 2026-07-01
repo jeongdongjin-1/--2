@@ -51,6 +51,20 @@ function jitter(center: [number, number], name: string): [number, number] {
   return [center[0] + Math.sin(ang) * rad, center[1] + Math.cos(ang) * rad]
 }
 
+// 동시 실행 개수를 제한하는 러너 (API throttle·호출 폭증 방지)
+async function runLimited<T, R>(items: T[], limit: number, worker: (item: T, i: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let idx = 0
+  async function next(): Promise<void> {
+    while (idx < items.length) {
+      const cur = idx++
+      results[cur] = await worker(items[cur], cur)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, next))
+  return results
+}
+
 function ViewController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap()
   useEffect(() => {
@@ -85,22 +99,20 @@ export default function MapTab() {
     setLoading(true)
     let src = ''
     const out: RegionStat[] = []
-    await Promise.all(
-      guRegions.map(async (r) => {
-        try {
-          const res = await fetch(`/api/trades?lawd=${r.code}&ymd=${ymd}`)
-          const json = await res.json()
-          src = json.source || src
-          const prices: number[] = (json.items || []).map((t: Trade) => t.priceWon)
-          const afford = computeAffordability(profile, CURRENT_POLICY, isRegulated(r.code, CURRENT_POLICY))
-          out.push({
-            code: r.code, name: r.name, pos: REGION_COORDS[r.code],
-            total: prices.length, median: median(prices),
-            affordable: prices.filter((p) => p <= afford.maxPriceWon).length,
-          })
-        } catch {}
-      })
-    )
+    await runLimited(guRegions, 6, async (r) => {
+      try {
+        const res = await fetch(`/api/trades?lawd=${r.code}&ymd=${ymd}`)
+        const json = await res.json()
+        src = json.source || src
+        const prices: number[] = (json.items || []).map((t: Trade) => t.priceWon)
+        const afford = computeAffordability(profile, CURRENT_POLICY, isRegulated(r.code, CURRENT_POLICY))
+        out.push({
+          code: r.code, name: r.name, pos: REGION_COORDS[r.code],
+          total: prices.length, median: median(prices),
+          affordable: prices.filter((p) => p <= afford.maxPriceWon).length,
+        })
+      } catch {}
+    })
     setStats(out)
     setSource(src)
     setLoading(false)
@@ -125,8 +137,9 @@ export default function MapTab() {
         byApt.get(t.apt)!.push(t)
       }
 
-      const markers = await Promise.all(
-        [...byApt.entries()].map(async ([apt, list]) => {
+      const markers = await runLimited(
+        [...byApt.entries()], 6,
+        async ([apt, list]) => {
           const prices = list.map((t) => t.priceWon)
           const areas = list.map((t) => t.area)
           const med = median(prices)
@@ -154,7 +167,7 @@ export default function MapTab() {
             affordable: med <= afford.maxPriceWon,
             areaText,
           } as AptMarker
-        })
+        }
       )
       setApts(markers)
     } catch {
