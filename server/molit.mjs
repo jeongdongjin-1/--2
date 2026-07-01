@@ -43,8 +43,9 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
 
   const header = json?.response?.header
   const code = header ? String(header.resultCode) : null
-  // 성공 코드는 '00' 또는 '000'(API마다 다름). 그 외(인증실패/오류/비정상)는 목업 폴백.
-  const ok = code === '00' || code === '000' || Number(code) === 0
+  // 성공 코드는 '00' 또는 '000'(API마다 다름). 그 외(인증실패·키거부·비정상 응답)는 목업 폴백.
+  // ※ code가 null이면(인증오류 XML은 <response> 구조가 아님) 성공이 아니므로 반드시 폴백.
+  const ok = code === '00' || code === '000'
   if (!ok) {
     return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
   }
