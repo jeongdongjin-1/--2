@@ -11,7 +11,7 @@ const parser = new XMLParser({ ignoreAttributes: false, trimValues: true })
 // { apt, dong, area, priceWon, year, month, day, floor, buildYear, lawdCode }
 export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 }) {
   if (!serviceKey) {
-    return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
+    return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd) }
   }
 
   const url = new URL(API_URL)
@@ -31,7 +31,7 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
     text = await res.text()
   } catch {
     // 네트워크 오류 → 목업 폴백
-    return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
+    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
   }
 
   let json
@@ -47,7 +47,8 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
   // ※ code가 null이면(인증오류 XML은 <response> 구조가 아님) 성공이 아니므로 반드시 폴백.
   const ok = code === '00' || code === '000'
   if (!ok) {
-    return { source: 'mock', items: mockTrades(lawdCode, dealYmd) }
+    // 키는 있으나 API가 거부/오류(인증 전파중, 일시 차단 등) → 목업, 사유 표시
+    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
   }
 
   let items = json?.response?.body?.items?.item ?? []

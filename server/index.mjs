@@ -105,8 +105,8 @@ app.get('/api/trades', async (req, res) => {
     return res.status(400).json({ error: 'lawd(5자리), ymd(6자리) 필요' })
   }
   try {
-    const { source, items } = await fetchTrades({ lawdCode, dealYmd, serviceKey: SERVICE_KEY })
-    res.json({ source, lawdCode, dealYmd, count: items.length, items })
+    const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, serviceKey: SERVICE_KEY })
+    res.json({ source, reason, lawdCode, dealYmd, count: items.length, items })
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }

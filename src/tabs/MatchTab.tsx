@@ -48,6 +48,7 @@ export default function MatchTab() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(false)
   const [source, setSource] = useState<string>('')
+  const [reason, setReason] = useState<string>('')
   const [error, setError] = useState('')
   const [onlyAffordable, setOnlyAffordable] = useState(true)
 
@@ -75,6 +76,7 @@ export default function MatchTab() {
       if (!res.ok) throw new Error(json.error || '조회 실패')
       setTrades(json.items)
       setSource(json.source)
+      setReason(json.reason || '')
     } catch (e: any) {
       setError(String(e?.message || e))
       setTrades([])
@@ -260,7 +262,13 @@ export default function MatchTab() {
             총 {cards.length}건 중 <b className="ok">{affordableCount}건</b> 입주 가능
           </div>
           <div className="source">
-            {source === 'mock' ? '⚠️ 목업 데이터 (실거래가 키 미설정)' : source === 'molit' ? '✅ 국토부 실거래가' : ''}
+            {source === 'mock'
+              ? reason === 'apierror'
+                ? '⚠️ 목업 (실거래가 API 일시 오류·재시도 필요)'
+                : '⚠️ 목업 (실거래가 키 미설정)'
+              : source === 'molit'
+                ? '✅ 국토부 실거래가'
+                : ''}
           </div>
         </div>
 
