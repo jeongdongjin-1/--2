@@ -70,8 +70,22 @@ function ymKey(y: number, m: number) {
 }
 
 export default function CalendarTab() {
-  const [events, setEvents] = useState<SubscriptionEvent[]>(SUBSCRIPTION_EVENTS)
+  const [allEvents, setAllEvents] = useState<SubscriptionEvent[]>(SUBSCRIPTION_EVENTS)
   const [source, setSource] = useState<string>('')
+  const [regionFilter, setRegionFilter] = useState<'전체' | '서울' | '경기' | '인천'>('전체')
+  const [typeFilter, setTypeFilter] = useState<'전체' | 'special' | 'first'>('전체')
+
+  // 필터 적용된 이벤트
+  const events = useMemo(
+    () =>
+      allEvents.filter((e) => {
+        if (regionFilter !== '전체' && !e.region.includes(regionFilter)) return false
+        if (typeFilter === 'special' && e.type !== 'special') return false
+        if (typeFilter === 'first' && e.type === 'special') return false // 1·2순위만
+        return true
+      }),
+    [allEvents, regionFilter, typeFilter]
+  )
 
   // 청약홈 API에서 일정 로드 (실패/키없음 → 정적 샘플 유지)
   useEffect(() => {
@@ -81,7 +95,7 @@ export default function CalendarTab() {
       .then((json) => {
         if (!alive) return
         setSource(json.source || '')
-        if (Array.isArray(json.items) && json.items.length > 0) setEvents(json.items)
+        if (Array.isArray(json.items) && json.items.length > 0) setAllEvents(json.items)
       })
       .catch(() => {})
     return () => {
@@ -104,14 +118,14 @@ export default function CalendarTab() {
     return map
   }, [events])
 
-  // 데이터 로드 후 첫 이벤트 달/날짜로 이동
+  // 데이터 로드 후 첫 이벤트 달/날짜로 이동 (필터 변경 시엔 이동 안 함)
   useEffect(() => {
-    if (events.length === 0) return
-    const d = events[0].date
+    if (allEvents.length === 0) return
+    const d = allEvents[0].date
     setYear(Number(d.slice(0, 4)))
     setMonth(Number(d.slice(5, 7)) - 1)
     setSelected(d)
-  }, [events])
+  }, [allEvents])
 
   const monthHasEvents = useMemo(
     () => events.filter((e) => e.date.startsWith(ymKey(year, month))),
@@ -146,6 +160,21 @@ export default function CalendarTab() {
             <button className="nav-btn" onClick={() => shift(-1)}>‹</button>
             <h2>{year}년 {month + 1}월 청약 일정</h2>
             <button className="nav-btn" onClick={() => shift(1)}>›</button>
+          </div>
+
+          <div className="cal-filters">
+            <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value as typeof regionFilter)}>
+              <option value="전체">전 지역</option>
+              <option value="서울">서울</option>
+              <option value="경기">경기</option>
+              <option value="인천">인천</option>
+            </select>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}>
+              <option value="전체">전체 유형</option>
+              <option value="special">특별공급만</option>
+              <option value="first">일반(1·2순위)</option>
+            </select>
+            <span className="cal-count">{events.length}건</span>
           </div>
 
           <div className="cal-grid cal-dow">

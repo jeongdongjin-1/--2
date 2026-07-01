@@ -51,6 +51,8 @@ export default function MatchTab() {
   const [reason, setReason] = useState<string>('')
   const [error, setError] = useState('')
   const [onlyAffordable, setOnlyAffordable] = useState(true)
+  const [areaFilter, setAreaFilter] = useState<'all' | 'small' | 'mid' | 'large'>('all')
+  const [ageFilter, setAgeFilter] = useState<'all' | '5' | '10' | '20' | 'old'>('all')
 
   useEffect(() => {
     saveProfile(profile)
@@ -113,7 +115,18 @@ export default function MatchTab() {
     return list
   }, [trades, afford.maxPriceWon])
 
-  const shown = onlyAffordable ? cards.filter((c) => c.affordable) : cards
+  const shown = cards.filter((c) => {
+    if (onlyAffordable && !c.affordable) return false
+    if (areaFilter === 'small' && !(c.area < 60)) return false
+    if (areaFilter === 'mid' && !(c.area >= 60 && c.area < 85)) return false
+    if (areaFilter === 'large' && !(c.area >= 85)) return false
+    const age = new Date().getFullYear() - c.buildYear
+    if (ageFilter === '5' && age > 5) return false
+    if (ageFilter === '10' && age > 10) return false
+    if (ageFilter === '20' && age > 20) return false
+    if (ageFilter === 'old' && age <= 20) return false
+    return true
+  })
   const affordableCount = cards.filter((c) => c.affordable).length
 
   function set<K extends keyof UserProfile>(k: K, v: UserProfile[K]) {
@@ -254,6 +267,19 @@ export default function MatchTab() {
           <button className="btn-primary" onClick={loadTrades} disabled={loading}>
             {loading ? '조회 중…' : '실거래 조회'}
           </button>
+          <select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value as typeof areaFilter)} title="전용면적">
+            <option value="all">전 평형</option>
+            <option value="small">소형 (~59㎡)</option>
+            <option value="mid">중형 (60~84㎡)</option>
+            <option value="large">대형 (85㎡~)</option>
+          </select>
+          <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as typeof ageFilter)} title="연식">
+            <option value="all">전 연식</option>
+            <option value="5">5년 이내</option>
+            <option value="10">10년 이내</option>
+            <option value="20">20년 이내</option>
+            <option value="old">20년 초과</option>
+          </select>
           <label className="check inline">
             <input type="checkbox" checked={onlyAffordable} onChange={(e) => setOnlyAffordable(e.target.checked)} />
             살 수 있는 것만
@@ -268,11 +294,14 @@ export default function MatchTab() {
           <div className="source">
             {source === 'mock'
               ? reason === 'apierror'
-                ? '⚠️ 목업 (실거래가 API 일시 오류·재시도 필요)'
+                ? '⚠️ 목업 (실거래가 API 일시 오류)'
                 : '⚠️ 목업 (실거래가 키 미설정)'
               : source === 'molit'
                 ? '✅ 국토부 실거래가'
                 : ''}
+            {source === 'mock' && reason === 'apierror' && (
+              <button className="retry-btn" onClick={loadTrades} disabled={loading}>재시도</button>
+            )}
           </div>
         </div>
 
