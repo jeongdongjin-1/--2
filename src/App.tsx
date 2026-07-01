@@ -4,15 +4,17 @@ import { formatWon } from './lib/affordability'
 import { hasConsent, setConsent } from './lib/profileStore'
 import MatchTab from './tabs/MatchTab'
 import MapTab from './tabs/MapTab'
+import StrategyTab from './tabs/StrategyTab'
 import BenefitsTab from './tabs/BenefitsTab'
 import CalendarTab from './tabs/CalendarTab'
 import MilitaryTab from './tabs/MilitaryTab'
 
-type TabKey = 'match' | 'map' | 'benefits' | 'calendar' | 'military'
+type TabKey = 'match' | 'map' | 'strategy' | 'benefits' | 'calendar' | 'military'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'match', label: '내가 살 수 있는 집', icon: '🏠' },
   { key: 'map', label: '지도', icon: '🗺️' },
+  { key: 'strategy', label: '청약·매매 전략', icon: '⚖️' },
   { key: 'benefits', label: '신혼·다자녀 혜택', icon: '💍' },
   { key: 'calendar', label: '청약 캘린더', icon: '📅' },
   { key: 'military', label: '군인공제 비교', icon: '🎖️' },
@@ -80,6 +82,7 @@ export default function App() {
       <div className="tab-body">
         {tab === 'match' && <MatchTab />}
         {tab === 'map' && <MapTab />}
+        {tab === 'strategy' && <StrategyTab />}
         {tab === 'benefits' && <BenefitsTab />}
         {tab === 'calendar' && <CalendarTab />}
         {tab === 'military' && <MilitaryTab />}
