@@ -288,3 +288,78 @@ body {
   .benefit-grid { grid-template-columns: 1fr; }
   .cal-layout { grid-template-columns: 1fr; }
 }
+
+/* ── 모바일 반응형 (≤768px) ──
+   데스크톱은 100vh 고정+내부 스크롤이지만, 모바일은 페이지 전체가 스크롤되도록 전환한다. */
+@media (max-width: 768px) {
+  body { font-size: 13px; }
+  .app { height: auto; min-height: 100dvh; }
+
+  /* 상단바: 높이 자동, 정책칩 축소 */
+  .topbar { height: auto; min-height: 50px; padding: 8px 14px; gap: 8px; }
+  .brand { font-size: 16px; }
+  .brand span { display: none; }
+  .policy-pill { font-size: 10.5px; padding: 5px 9px; line-height: 1.3; }
+
+  /* 탭바: 가로 스크롤 */
+  .tabbar { overflow-x: auto; flex-wrap: nowrap; padding: 0 8px; -webkit-overflow-scrolling: touch; }
+  .tabbar::-webkit-scrollbar { display: none; }
+  .tab { flex: none; padding: 11px 10px; font-size: 13px; white-space: nowrap; }
+  .tab-icon { font-size: 15px; }
+
+  /* 탭 본문: 내부 고정 스크롤 해제 → 페이지 스크롤 */
+  .tab-body { display: block; }
+  .tab-scroll { overflow: visible; padding: 14px; }
+
+  /* 매칭 탭: 사이드바를 위로 쌓고 콘텐츠는 자연 흐름 */
+  .layout { display: block; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--line); overflow: visible; padding: 14px; }
+  .content { overflow: visible; padding: 14px; }
+  .cards { overflow: visible; }
+  .big-number { font-size: 26px; }
+
+  /* 필터/결과 헤더 줄바꿈 */
+  .filters { gap: 6px; }
+  .filters select { min-width: 0; flex: 1 1 44%; }
+  .filters .ymd { flex: 1 1 30%; width: auto; }
+  .filters .btn-primary { flex: 1 1 100%; }
+  .result-head { flex-wrap: wrap; gap: 4px; }
+
+  /* 히어로/혜택 카드 */
+  .hero-card { flex-direction: column; text-align: center; gap: 10px; padding: 18px; }
+  .hero-emoji { font-size: 38px; }
+  .hero-card h2 { font-size: 19px; }
+  .loan-grid { grid-template-columns: 1fr; }
+  .household-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .hh-pill { flex: none; padding: 8px 13px; }
+
+  /* 지도: 페이지 스크롤 내에서 고정 높이 확보 */
+  .map-tab { height: auto; display: block; }
+  .map-controls { gap: 8px; padding: 10px 12px; }
+  .map-controls select { flex: 1 1 40%; }
+  .map-legend { margin-left: 0; flex-basis: 100%; }
+  .map-wrap { height: 62vh; min-height: 340px; }
+
+  /* 캘린더 칸 축소 */
+  .cal-cell { min-height: 62px; padding: 4px; border-radius: 8px; }
+  .cal-grid { gap: 4px; }
+  .cal-date { font-size: 12px; }
+  .ev-chip { font-size: 9px; }
+  .cal-head h2 { font-size: 16px; }
+
+  /* 카드 가격 줄바꿈 방지 */
+  .card { padding: 11px 12px; }
+  .card-title { font-size: 14px; }
+  .price { font-size: 15px; }
+
+  /* 동의 화면 여백 축소 */
+  .consent-card { padding: 26px 22px; }
+  .consent-card h1 { font-size: 24px; }
+}
+
+/* 아주 좁은 화면 (≤380px) */
+@media (max-width: 380px) {
+  .filters select { flex-basis: 100%; }
+  .tab { padding: 10px 8px; font-size: 12px; }
+  .policy-pill { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
