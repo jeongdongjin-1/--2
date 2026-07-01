@@ -9,7 +9,10 @@ const parser = new XMLParser({ ignoreAttributes: false, trimValues: true })
 
 // 표준화된 거래 1건
 // { apt, dong, area, priceWon, year, month, day, floor, buildYear, lawdCode }
-export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 }) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// MOLIT 실거래가는 apis.data.go.kr 게이트웨이가 간헐적으로 오류/차단을 내므로 재시도한다.
+export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200, retries = 3 }) {
   if (!serviceKey) {
     return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd) }
   }
@@ -21,40 +24,37 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200 })
   url.searchParams.set('numOfRows', String(rows))
   url.searchParams.set('pageNo', '1')
 
-  let text
-  try {
-    // data.go.kr 게이트웨이는 User-Agent 없는 요청을 차단(400 Request Blocked)하므로 반드시 설정
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 budongsan' },
-    })
-    text = await res.text()
-  } catch {
-    // 네트워크 오류 → 목업 폴백
-    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      // data.go.kr 게이트웨이는 User-Agent 없는 요청을 차단(400)하므로 반드시 설정
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 budongsan' },
+      })
+      const text = await res.text()
+      let json = null
+      try {
+        json = parser.parse(text)
+      } catch {}
+      // ⚠️ fast-xml-parser는 "000"을 숫자 0으로 변환한다. 그래서 문자열 '00'/'000' 비교는 실패.
+      //    성공 판정: <response><header>가 존재하고 resultCode 숫자값이 0.
+      //    (인증오류는 <OpenAPI_ServiceResponse> 구조라 response.header가 없음 → header null → 실패로 폴백)
+      const header = json?.response?.header
+      const ok = header != null && Number(header.resultCode) === 0
+      if (ok) {
+        let items = json?.response?.body?.items?.item ?? []
+        if (!Array.isArray(items)) items = items ? [items] : []
+        return { source: 'molit', items: items.map((it) => normalize(it, lawdCode)) }
+      }
+      // 실패(인증 전파중·일시 차단·throttle 등) → 잠깐 쉬고 재시도
+    } catch {
+      // 네트워크/타임아웃 → 재시도
+    }
+    if (attempt < retries - 1) await sleep(500 * (attempt + 1)) // 0.5s, 1s 백오프
   }
 
-  let json
-  try {
-    json = parser.parse(text)
-  } catch {
-    json = null
-  }
-
-  const header = json?.response?.header
-  const code = header ? String(header.resultCode) : null
-  // 성공 코드는 '00' 또는 '000'(API마다 다름). 그 외(인증실패·키거부·비정상 응답)는 목업 폴백.
-  // ※ code가 null이면(인증오류 XML은 <response> 구조가 아님) 성공이 아니므로 반드시 폴백.
-  const ok = code === '00' || code === '000'
-  if (!ok) {
-    // 키는 있으나 API가 거부/오류(인증 전파중, 일시 차단 등) → 목업, 사유 표시
-    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
-  }
-
-  let items = json?.response?.body?.items?.item ?? []
-  if (!Array.isArray(items)) items = items ? [items] : []
-
-  return { source: 'molit', items: items.map((it) => normalize(it, lawdCode)) }
+  // 모든 재시도 실패 → 목업 폴백(사유 표시)
+  return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
 }
 
 function num(v) {
