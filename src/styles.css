@@ -353,6 +353,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .map-wrap .leaflet-container { background: #e8eef3; }
 .map-pop { font-size: 13px; line-height: 1.6; }
 .map-pop .reg { margin-top: 4px; color: #c2410c; font-weight: 700; }
+.apt-marker .apt-dot { display: block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.4); }
 .map-pop .aff-ok { margin-top: 4px; color: var(--ok); font-weight: 700; }
 .map-pop .aff-no { margin-top: 4px; color: var(--no); font-weight: 700; }
 

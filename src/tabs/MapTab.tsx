@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Marker, Tooltip, Popup, useMap } from 'react-leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
+import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+
+// 개별 단지 마커용 컬러 divIcon (입주가능=초록/초과=빨강, 근사위치는 반투명)
+function dotIcon(affordable: boolean, precise: boolean) {
+  const color = affordable ? '#16a34a' : '#ef4444'
+  return L.divIcon({
+    className: 'apt-marker',
+    html: `<span class="apt-dot" style="background:${color};opacity:${precise ? 0.95 : 0.6}"></span>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8],
+  })
+}
 import { REGIONS, REGION_COORDS, SIDO_LIST, type Region } from '../data/regions'
 import { CURRENT_POLICY } from '../data/policy'
 import { computeAffordability, formatWon, isRegulated } from '../lib/affordability'
@@ -262,30 +276,30 @@ export default function MapTab() {
             )
           })}
 
-          {/* 개별 단지 모드 */}
-          {gu !== 'all' && apts.map((a, i) => {
-            const color = a.affordable ? '#16a34a' : '#ef4444'
-            return (
-              <CircleMarker key={a.apt + i} center={a.pos} radius={9}
-                pathOptions={{ color, fillColor: color, fillOpacity: a.precise ? 0.85 : 0.5, weight: 2 }}>
-                <Tooltip direction="top" opacity={1}>
-                  <b>{a.apt.replace(/\s*\d+단지/, m => m)}</b> · {formatWon(a.priceWon)}
-                </Tooltip>
-                <Popup>
-                  <div className="map-pop">
-                    <b>{a.apt}</b>
-                    <div>{a.dong} · 전용 {a.areaText} · 거래 {a.count}건</div>
-                    <div>중위가 <b>{formatWon(a.priceWon)}</b></div>
-                    <div className={a.affordable ? 'aff-ok' : 'aff-no'}>
-                      {a.affordable ? '✓ 입주 가능' : `✗ ${formatWon(a.priceWon - budget)} 초과`}
+          {/* 개별 단지 모드 — 마커 클러스터링 */}
+          {gu !== 'all' && (
+            <MarkerClusterGroup chunkedLoading maxClusterRadius={45} showCoverageOnHover={false}>
+              {apts.map((a, i) => (
+                <Marker key={a.apt + i} position={a.pos} icon={dotIcon(a.affordable, a.precise)}>
+                  <Tooltip direction="top" opacity={1}>
+                    <b>{a.apt}</b> · {formatWon(a.priceWon)}
+                  </Tooltip>
+                  <Popup>
+                    <div className="map-pop">
+                      <b>{a.apt}</b>
+                      <div>{a.dong} · 전용 {a.areaText} · 거래 {a.count}건</div>
+                      <div>중위가 <b>{formatWon(a.priceWon)}</b></div>
+                      <div className={a.affordable ? 'aff-ok' : 'aff-no'}>
+                        {a.affordable ? '✓ 입주 가능' : `✗ ${formatWon(a.priceWon - budget)} 초과`}
+                      </div>
+                      {a.place && <div className="reg" style={{ color: '#2563eb' }}>📍 {a.place}</div>}
+                      {!a.precise && <div className="reg">📍 근사 위치</div>}
                     </div>
-                    {a.place && <div className="reg" style={{ color: '#2563eb' }}>📍 {a.place}</div>}
-                    {!a.precise && <div className="reg">📍 근사 위치</div>}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            )
-          })}
+                  </Popup>
+                </Marker>
+              ))}
+            </MarkerClusterGroup>
+          )}
         </MapContainer>
       </div>
     </div>
