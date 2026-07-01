@@ -11,19 +11,10 @@ const parser = new XMLParser({ ignoreAttributes: false, trimValues: true })
 // { apt, dong, area, priceWon, year, month, day, floor, buildYear, lawdCode }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// MOLIT 실거래가는 apis.data.go.kr 게이트웨이가 간헐적으로 오류/차단을 내므로 재시도한다.
-export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200, retries = 3 }) {
-  if (!serviceKey) {
-    return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd) }
-  }
-
-  const url = new URL(API_URL)
-  url.searchParams.set('serviceKey', serviceKey)
-  url.searchParams.set('LAWD_CD', lawdCode)
-  url.searchParams.set('DEAL_YMD', dealYmd)
-  url.searchParams.set('numOfRows', String(rows))
-  url.searchParams.set('pageNo', '1')
-
+// 한 페이지 조회(재시도 포함). 성공 시 { items(raw[]), totalCount }, 실패 시 null.
+async function fetchMolitPage(baseUrl, pageNo, retries = 3) {
+  const url = new URL(baseUrl)
+  url.searchParams.set('pageNo', String(pageNo))
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       // data.go.kr 게이트웨이는 User-Agent 없는 요청을 차단(400)하므로 반드시 설정
@@ -36,25 +27,51 @@ export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 200, r
       try {
         json = parser.parse(text)
       } catch {}
-      // ⚠️ fast-xml-parser는 "000"을 숫자 0으로 변환한다. 그래서 문자열 '00'/'000' 비교는 실패.
-      //    성공 판정: <response><header>가 존재하고 resultCode 숫자값이 0.
-      //    (인증오류는 <OpenAPI_ServiceResponse> 구조라 response.header가 없음 → header null → 실패로 폴백)
+      // ⚠️ fast-xml-parser는 "000"을 숫자 0으로 변환 → 문자열 비교 대신 (header 존재 && Number(resultCode)===0).
       const header = json?.response?.header
-      const ok = header != null && Number(header.resultCode) === 0
-      if (ok) {
+      if (header != null && Number(header.resultCode) === 0) {
         let items = json?.response?.body?.items?.item ?? []
         if (!Array.isArray(items)) items = items ? [items] : []
-        return { source: 'molit', items: items.map((it) => normalize(it, lawdCode)) }
+        const totalCount = Number(json?.response?.body?.totalCount) || items.length
+        return { items, totalCount }
       }
-      // 실패(인증 전파중·일시 차단·throttle 등) → 잠깐 쉬고 재시도
+      // 실패(인증 전파중·일시 차단·throttle 등) → 재시도
     } catch {
       // 네트워크/타임아웃 → 재시도
     }
-    if (attempt < retries - 1) await sleep(500 * (attempt + 1)) // 0.5s, 1s 백오프
+    if (attempt < retries - 1) await sleep(500 * (attempt + 1))
+  }
+  return null
+}
+
+// 실거래가 조회. totalCount가 rows보다 크면 여러 페이지를 합산한다(200건 초과 달 누락 방지).
+export async function fetchTrades({ lawdCode, dealYmd, serviceKey, rows = 1000, maxItems = 3000 }) {
+  if (!serviceKey) {
+    return { source: 'mock', reason: 'nokey', items: mockTrades(lawdCode, dealYmd) }
   }
 
-  // 모든 재시도 실패 → 목업 폴백(사유 표시)
-  return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
+  const base = new URL(API_URL)
+  base.searchParams.set('serviceKey', serviceKey)
+  base.searchParams.set('LAWD_CD', lawdCode)
+  base.searchParams.set('DEAL_YMD', dealYmd)
+  base.searchParams.set('numOfRows', String(rows))
+  const baseStr = base.toString()
+
+  const first = await fetchMolitPage(baseStr, 1)
+  if (!first) {
+    return { source: 'mock', reason: 'apierror', items: mockTrades(lawdCode, dealYmd) }
+  }
+
+  let raw = first.items
+  const pagesNeeded = Math.min(Math.ceil(first.totalCount / rows), Math.ceil(maxItems / rows))
+  if (pagesNeeded > 1) {
+    const extra = await Promise.all(
+      Array.from({ length: pagesNeeded - 1 }, (_, i) => fetchMolitPage(baseStr, i + 2))
+    )
+    for (const p of extra) if (p) raw = raw.concat(p.items)
+  }
+
+  return { source: 'molit', items: raw.map((it) => normalize(it, lawdCode)) }
 }
 
 function num(v) {
