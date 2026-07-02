@@ -12,10 +12,12 @@ import { loadProfile, saveProfile, clearProfile, DEFAULT_PROFILE } from '../lib/
 import { evaluateEligibility } from '../lib/eligibility'
 import { fetchLatestTrades, fetchTradesYmd, ymWithOffset } from '../lib/trades'
 import { loadFavorites, toggleFavorite, favKey, type FavItem } from '../lib/favorites'
+import { naverLandUrl, kakaoMapUrl } from '../lib/links'
 
 type Trade = {
   apt: string
   dong: string
+  jibun?: string
   area: number
   priceWon: number
   year: number
@@ -38,6 +40,7 @@ type AptCard = {
   key: string
   apt: string
   dong: string
+  jibun?: string
   area: number
   priceWon: number
   buildYear: number
@@ -190,6 +193,7 @@ export default function MatchTab() {
       key: `${t.apt}|${t.area}`,
       apt: t.apt,
       dong: t.dong,
+      jibun: t.jibun,
       area: t.area,
       priceWon: t.priceWon,
       buildYear: t.buildYear,
@@ -459,12 +463,12 @@ export default function MatchTab() {
                   <div className="card-meta">{c.dong} · 전용 {c.area}㎡ · {c.buildYear}년 · 최근 {c.lastDeal}</div>
                   <div className="card-links">
                     <a
-                      href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${region?.name ?? ''} ${c.apt}`.trim())}`}
+                      href={naverLandUrl({ dong: c.dong, name: c.apt })}
                       target="_blank" rel="noreferrer" title="네이버 부동산에서 현재 매물 확인"
                     >네이버 매물 ↗</a>
                     <a
-                      href={`https://map.kakao.com/?q=${encodeURIComponent(`${region?.name ?? ''} ${c.dong} ${c.apt}`.trim())}`}
-                      target="_blank" rel="noreferrer" title="카카오맵에서 위치·시세 확인"
+                      href={kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt })}
+                      target="_blank" rel="noreferrer" title="카카오맵에서 정확한 위치 확인(지번 기준)"
                     >카카오맵 ↗</a>
                   </div>
                 </div>

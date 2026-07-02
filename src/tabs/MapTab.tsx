@@ -20,8 +20,9 @@ import { CURRENT_POLICY } from '../data/policy'
 import { computeAffordabilityWithCosts, formatWon, isRegulated } from '../lib/affordability'
 import { loadProfile } from '../lib/profileStore'
 import { fetchLatestTrades } from '../lib/trades'
+import { naverLandUrl, kakaoMapUrl } from '../lib/links'
 
-type Trade = { apt: string; dong: string; area: number; priceWon: number; buildYear: number }
+type Trade = { apt: string; dong: string; jibun?: string; area: number; priceWon: number; buildYear: number }
 
 type RegionStat = {
   code: string; name: string; pos: [number, number]
@@ -31,7 +32,7 @@ type RegionStat = {
 type AptMarker = {
   apt: string; pos: [number, number]; precise: boolean
   priceWon: number; affordable: boolean; count: number
-  areaText: string; dong: string; place?: string; placeUrl?: string
+  areaText: string; dong: string; jibun?: string; place?: string; placeUrl?: string
 }
 
 const SIDO_VIEW: Record<Region['sido'], { center: [number, number]; zoom: number }> = {
@@ -160,6 +161,7 @@ export default function MapTab() {
           const areas = list.map((t) => t.area)
           const med = median(prices)
           const dong = list[0].dong
+          const jibun = list[0].jibun
           // 지오코딩 시도 ("구 단지명"), 실패 시 구 중심 주변 분산
           let pos = jitter(center, apt)
           let precise = false
@@ -180,7 +182,7 @@ export default function MapTab() {
               ? `${Math.min(...areas)}~${Math.max(...areas)}㎡`
               : `${areas[0]}㎡`
           return {
-            apt, pos, precise, place, placeUrl, dong,
+            apt, pos, precise, place, placeUrl, dong, jibun,
             priceWon: med, count: list.length,
             affordable: med <= afford.maxPriceWon,
             areaText,
@@ -340,11 +342,11 @@ export default function MapTab() {
                       {!a.precise && <div className="reg">📍 근사 위치</div>}
                       <div className="map-links">
                         <a
-                          href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${REGIONS.find((r) => r.code === gu)?.name ?? ''} ${a.apt}`.trim())}`}
+                          href={naverLandUrl(a.precise ? { name: a.apt, lat: a.pos[0], lng: a.pos[1] } : { dong: a.dong, name: a.apt })}
                           target="_blank" rel="noreferrer"
                         >네이버 매물 ↗</a>
                         <a
-                          href={a.placeUrl || `https://map.kakao.com/?q=${encodeURIComponent(`${a.dong} ${a.apt}`)}`}
+                          href={kakaoMapUrl({ regionName: REGIONS.find((r) => r.code === gu)?.name, dong: a.dong, jibun: a.jibun, name: a.apt, placeUrl: a.placeUrl })}
                           target="_blank" rel="noreferrer"
                         >카카오맵 ↗</a>
                       </div>
