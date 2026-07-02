@@ -10,12 +10,13 @@ export function cleanAptName(name: string): string {
     .trim()
 }
 
-// 네이버 부동산 — 좌표가 있으면 해당 위치 지도를 바로 열고(무조건 매칭), 없으면 동+정리된 이름 검색
+// 네이버 부동산 — 좌표가 있으면 "해당 위치 중앙 + 단지명 검색 패널"을 함께 열어
+// 어느 단지인지 바로 표시되게 한다(search?ms=좌표&query=단지명). 없으면 동+정리명 검색.
 export function naverLandUrl(opts: { dong?: string; name: string; lat?: number; lng?: number }): string {
-  if (opts.lat != null && opts.lng != null) {
-    return `https://new.land.naver.com/complexes?ms=${opts.lat},${opts.lng},17`
-  }
   const q = `${opts.dong ?? ''} ${cleanAptName(opts.name)}`.trim()
+  if (opts.lat != null && opts.lng != null) {
+    return `https://new.land.naver.com/search?ms=${opts.lat},${opts.lng},18&query=${encodeURIComponent(q)}`
+  }
   return `https://new.land.naver.com/search?query=${encodeURIComponent(q)}`
 }
 
@@ -34,8 +35,10 @@ export async function openPreciseLink(
     })
     const j = await r.json()
     if (j.result?.precise) {
-      if (kind === 'naver') url = `https://new.land.naver.com/complexes?ms=${j.result.lat},${j.result.lng},17`
-      else if (j.result.placeUrl) url = j.result.placeUrl
+      if (kind === 'naver') {
+        // 좌표 중앙 + 검색 패널에 단지명 표시 → 어느 단지인지 창에서 바로 확인 가능
+        url = `https://new.land.naver.com/search?ms=${j.result.lat},${j.result.lng},18&query=${encodeURIComponent(query)}`
+      } else if (j.result.placeUrl) url = j.result.placeUrl
     }
   } catch {
     // 지오코딩 실패 → 폴백 URL 그대로
