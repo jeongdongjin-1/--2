@@ -453,6 +453,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .map-legend .dot.red { background: #ef4444; }
 .map-legend .dot.gray { background: #9ca3af; }
 .map-loading { font-size: 12px; color: var(--brand); }
+.agg-toggle { display: inline-flex; gap: 3px; padding: 3px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 9px; }
+.agg-toggle button { border: none; background: none; padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.agg-toggle button.on { background: var(--brand); color: #fff; }
 .map-subbar { flex: none; padding: 8px 16px; background: #faf8f4; border-bottom: 1px solid var(--line); font-size: 13px; color: #4a463d; }
 .map-subbar .ok { color: var(--ok); }
 .map-subbar .warn-text { color: #b45309; }

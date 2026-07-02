@@ -97,6 +97,7 @@ export default function MapTab() {
   const [loading, setLoading] = useState(false)
   const [source, setSource] = useState('')
   const [hasKakao, setHasKakao] = useState(false)
+  const [aggMode, setAggMode] = useState<'afford' | 'price'>('afford') // 집계 모드: 입주가능 / 중위가 히트맵
 
   const profile = useMemo(() => loadProfile(), [])
   const guRegions = useMemo(
@@ -238,10 +239,26 @@ export default function MapTab() {
         <input className="ymd" aria-label="거래 연월(YYYYMM)" value={ymd} maxLength={6}
           onChange={(e) => setYmd(e.target.value.replace(/\D/g, ''))} placeholder="YYYYMM" />
         <span className="map-budget">내 예산(비규제) <b>{formatWon(budget)}</b></span>
+        {gu === 'all' && (
+          <span className="agg-toggle" role="tablist" aria-label="집계 표시 모드">
+            <button className={aggMode === 'afford' ? 'on' : ''} onClick={() => setAggMode('afford')}>입주가능</button>
+            <button className={aggMode === 'price' ? 'on' : ''} onClick={() => setAggMode('price')}>가격 히트맵</button>
+          </span>
+        )}
         <span className="map-legend">
-          <i className="dot green" /> 입주 가능
-          <i className="dot red" /> 예산 초과
-          {gu === 'all' && <><i className="dot gray" /> 거래 없음</>}
+          {gu !== 'all' || aggMode === 'afford' ? (
+            <>
+              <i className="dot green" /> 입주 가능
+              <i className="dot red" /> 예산 초과
+              {gu === 'all' && <><i className="dot gray" /> 거래 없음</>}
+            </>
+          ) : (
+            <>
+              <i className="dot" style={{ background: 'hsl(140,65%,42%)' }} /> 낮음
+              <i className="dot" style={{ background: 'hsl(70,70%,45%)' }} /> 중간
+              <i className="dot" style={{ background: 'hsl(0,70%,50%)' }} /> 높음 (중위가)
+            </>
+          )}
         </span>
         {loading && <span className="map-loading">불러오는 중…</span>}
         <span className="source">
@@ -268,14 +285,28 @@ export default function MapTab() {
 
           {/* 구별 요약 모드 */}
           {gu === 'all' && stats.map((s) => {
-            const color = s.total === 0 ? '#9ca3af' : s.affordable > 0 ? '#16a34a' : '#ef4444'
-            const radius = s.total === 0 ? 8 : Math.min(26, 9 + s.total)
+            // 히트맵 모드: 시도 내 중위가 상대 위치(초록=저렴 → 빨강=비쌈)
+            let color: string
+            if (s.total === 0) color = '#9ca3af'
+            else if (aggMode === 'price') {
+              const meds = stats.filter((x) => x.total > 0).map((x) => x.median)
+              const lo = Math.min(...meds), hi = Math.max(...meds)
+              const t = hi === lo ? 0.5 : (s.median - lo) / (hi - lo)
+              color = `hsl(${Math.round(140 * (1 - t))},68%,${Math.round(45 - 5 * t)}%)`
+            } else {
+              color = s.affordable > 0 ? '#16a34a' : '#ef4444'
+            }
+            const radius = s.total === 0 ? 8 : aggMode === 'price' ? 16 : Math.min(26, 9 + s.total)
             return (
               <CircleMarker key={s.code} center={s.pos} radius={radius}
                 pathOptions={{ color, fillColor: color, fillOpacity: 0.55, weight: 2 }}
                 eventHandlers={{ click: () => setGu(s.code) }}>
                 <Tooltip direction="top" opacity={1}>
-                  <b>{s.name}</b>{s.affordable > 0 ? ` · 가능 ${s.affordable}건` : ''} · 클릭하면 단지 보기
+                  <b>{s.name}</b>
+                  {aggMode === 'price'
+                    ? ` · 중위 ${s.median ? formatWon(s.median) : '-'}`
+                    : s.affordable > 0 ? ` · 가능 ${s.affordable}건` : ''}
+                  {' · 클릭하면 단지 보기'}
                 </Tooltip>
                 <Popup>
                   <div className="map-pop">
