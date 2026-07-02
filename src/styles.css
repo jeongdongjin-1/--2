@@ -134,6 +134,28 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .card-row { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .card.expanded { border-color: var(--brand); }
 
+/* 관심 단지 */
+.fav-btn { border: none; background: none; font-size: 18px; color: #d9d2c5; cursor: pointer; padding: 0 2px; line-height: 1; }
+.fav-btn:hover { color: #f0b429; }
+.fav-btn.on { color: #f0b429; }
+.fav-btn.sm { font-size: 15px; flex: none; }
+.card-price { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.fav-panel { border: 1px solid #f3e2b3; background: linear-gradient(160deg, #fffbeb, #fffdf7); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.fav-panel h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.fav-count { font-size: 11px; font-weight: 800; background: #f0b429; color: #fff; border-radius: 999px; padding: 1px 7px; }
+.fav-panel ul { list-style: none; margin: 0; padding: 0; }
+.fav-panel li { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px dashed #f3e2b3; }
+.fav-panel li:first-child { border-top: none; }
+.fav-main { flex: 1; min-width: 0; }
+.fav-main b { font-size: 13.5px; display: block; }
+.fav-meta { font-size: 11.5px; color: var(--muted); }
+.fav-now { text-align: right; font-size: 13px; flex: none; }
+.fav-now b { display: block; }
+.fav-diff { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.fav-diff.up { color: #dc2626; }
+.fav-diff.down { color: #2563eb; }
+.fav-loading { font-size: 11.5px; color: var(--muted); }
+
 /* 단지 상세(시세 추이) */
 .detail-box { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
 .detail-box.loading { color: var(--muted); font-size: 12.5px; }

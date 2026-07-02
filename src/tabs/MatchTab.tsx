@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { REGIONS, SIDO_LIST, type Region } from '../data/regions'
 import { CURRENT_POLICY } from '../data/policy'
 import {
@@ -11,6 +11,7 @@ import {
 import { loadProfile, saveProfile, clearProfile, DEFAULT_PROFILE } from '../lib/profileStore'
 import { evaluateEligibility } from '../lib/eligibility'
 import { fetchLatestTrades, fetchTradesYmd, ymWithOffset } from '../lib/trades'
+import { loadFavorites, toggleFavorite, favKey, type FavItem } from '../lib/favorites'
 
 type Trade = {
   apt: string
@@ -74,6 +75,25 @@ export default function MatchTab() {
   const regulated = region ? isRegulated(region.code, CURRENT_POLICY) : false
 
   const [includeCosts, setIncludeCosts] = useState(true)
+
+  // 관심 단지 즐겨찾기
+  const [favorites, setFavorites] = useState<FavItem[]>(loadFavorites())
+  function onToggleFav(c: AptCard) {
+    const item: FavItem = {
+      key: favKey(c.apt, c.area, lawd, propType),
+      apt: c.apt,
+      area: c.area,
+      dong: c.dong,
+      lawd,
+      regionName: region?.name ?? '',
+      type: propType,
+      savedPriceWon: c.priceWon,
+      savedYmd: ymd,
+      savedAt: Date.now(),
+    }
+    setFavorites(toggleFavorite(item))
+  }
+  const favKeys = useMemo(() => new Set(favorites.map((f) => f.key)), [favorites])
 
   // 단지 상세(시세 추이) — 카드 클릭 토글, 이력은 키별 캐시
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
@@ -355,6 +375,10 @@ export default function MatchTab() {
           ))}
         </div>
 
+        {favorites.length > 0 && (
+          <FavPanel favorites={favorites} onRemove={(f) => setFavorites(toggleFavorite(f))} />
+        )}
+
         <section className="filters">
           <select value={sido} onChange={(e) => {
             const s = e.target.value as Region['sido']
@@ -445,6 +469,15 @@ export default function MatchTab() {
                   </div>
                 </div>
                 <div className="card-price">
+                  <button
+                    className={`fav-btn ${favKeys.has(favKey(c.apt, c.area, lawd, propType)) ? 'on' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onToggleFav(c)
+                    }}
+                    aria-label="관심 단지 저장"
+                    title="관심 단지로 저장"
+                  >★</button>
                   <div className="price">{formatWon(c.priceWon)}</div>
                   <div className={`badge ${c.affordable ? 'ok' : 'no'}`}>
                     {c.affordable ? '입주 가능' : `${formatWon(c.priceWon - afford.maxPriceWon)} 부족`}
@@ -490,6 +523,73 @@ function bindingLabel(b: string) {
   if (b === 'DSR') return 'DSR(상환능력)'
   if (b === 'HARD_CAP') return '정책 대출한도'
   return b
+}
+
+// 관심 단지 패널 — 저장가 대비 최신 중위가 변동 표시
+function FavPanel({ favorites, onRemove }: { favorites: FavItem[]; onRemove: (f: FavItem) => void }) {
+  const [latest, setLatest] = useState<Record<string, number | null>>({})
+  const inflight = useRef<Set<string>>(new Set())
+
+  // StrictMode 이중 실행에 안전: in-flight 가드 + 완료 시 해제, cleanup으로 결과 버리지 않음
+  useEffect(() => {
+    const targets = favorites
+      .filter((f) => latest[f.key] === undefined && !inflight.current.has(f.key))
+      .slice(0, 8)
+    if (targets.length === 0) return
+    targets.forEach((f) => inflight.current.add(f.key))
+    let i = 0
+    async function worker() {
+      while (i < targets.length) {
+        const f = targets[i++]
+        try {
+          const r = await fetch(
+            `/api/complex-history?lawd=${f.lawd}&apt=${encodeURIComponent(f.apt)}&type=${f.type}&area=${f.area}&months=3`
+          )
+          const j = await r.json()
+          const m = [...(j.months || [])].reverse().find((x: HistoryMonth) => x.count > 0)
+          setLatest((s) => ({ ...s, [f.key]: m ? m.medianWon : null }))
+        } catch {
+          setLatest((s) => ({ ...s, [f.key]: null }))
+        } finally {
+          inflight.current.delete(f.key)
+        }
+      }
+    }
+    Promise.all([worker(), worker(), worker()])
+  }, [favorites, latest])
+
+  return (
+    <section className="fav-panel">
+      <h3>⭐ 관심 단지 <span className="fav-count">{favorites.length}</span></h3>
+      <ul>
+        {favorites.map((f) => {
+          const cur = latest[f.key]
+          const diff = typeof cur === 'number' ? cur - f.savedPriceWon : null
+          return (
+            <li key={f.key}>
+              <button className="fav-btn on sm" onClick={() => onRemove(f)} aria-label="관심 해제" title="관심 해제">★</button>
+              <div className="fav-main">
+                <b>{f.apt}</b>
+                <span className="fav-meta">{f.regionName} · {f.area}㎡ · 저장 {formatWon(f.savedPriceWon)}</span>
+              </div>
+              <div className="fav-now">
+                {cur === undefined && <span className="fav-loading">조회중…</span>}
+                {cur === null && <span className="fav-loading">최근 거래 없음</span>}
+                {typeof cur === 'number' && (
+                  <>
+                    <b>{formatWon(cur)}</b>
+                    <span className={`fav-diff ${diff! > 0 ? 'up' : diff! < 0 ? 'down' : ''}`}>
+                      {diff === 0 ? '보합' : `${diff! > 0 ? '▲' : '▼'} ${formatWon(Math.abs(diff!))}`}
+                    </span>
+                  </>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
 }
 
 // 단지 상세 — 12개월 중위가 추이 차트 + 최근 거래 목록
