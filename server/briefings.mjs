@@ -15,18 +15,31 @@ const parser = new XMLParser({ ignoreAttributes: false, trimValues: true, cdataP
 
 // RSS 소스 — korea.kr(정책브리핑) 부처별 공개 피드. 검증됨(2026-07):
 //   부처 직접 RSS(molit.go.kr 307, fsc.go.kr 404)는 폐쇄되어 korea.kr 경유가 안정적.
+//   기재부(dept_moef)는 세제·금리, 금융위는 대출, 국토부는 규제·청약 기사의 주 소스.
 const SOURCES = [
   { name: '국토교통부', url: 'https://www.korea.kr/rss/dept_molit.xml' },
   { name: '금융위원회', url: 'https://www.korea.kr/rss/dept_fsc.xml' },
+  { name: '기획재정부', url: 'https://www.korea.kr/rss/dept_moef.xml' },
   { name: '정책브리핑', url: 'https://www.korea.kr/rss/policy.xml' },
 ]
 
-// 부동산 관련 키워드(제목 기준 필터) — '공급'·'금리' 단독은 오탐 많아 제외
-const KEYWORDS = [
-  '부동산', '주택', '아파트', '오피스텔', '빌라', '전세', '월세', '청약', '분양',
-  'DSR', 'LTV', '주담대', '주택담보', '디딤돌', '버팀목', '규제지역', '투기과열',
-  '조정대상', '재건축', '재개발', '임대', '입주', '전월세',
+// 카테고리 분류 규칙 — 순서대로 첫 매치가 카테고리가 됨(구체적 규칙을 앞에).
+// 어느 규칙에도 안 걸리면 수집 제외. '공급' 단독 등 과광범위 키워드는 의도적으로 뺌.
+const CATEGORY_RULES = [
+  { cat: '규제지역', words: ['투기과열', '조정대상', '규제지역', '토지거래허가'] },
+  { cat: '청약', words: ['청약', '분양', '특별공급', '입주자모집', '사전청약'] },
+  { cat: '대출', words: ['대출', 'DSR', 'LTV', '주담대', '주택담보', '디딤돌', '버팀목', '전세자금', '보금자리론'] },
+  { cat: '금리', words: ['기준금리', '코픽스', '통화정책', '금리'] },
+  { cat: '세제', words: ['취득세', '양도세', '종부세', '재산세', '보유세', '상속세', '증여세'] },
+  { cat: '부동산', words: ['부동산', '주택', '아파트', '오피스텔', '빌라', '전세', '월세', '재건축', '재개발', '임대', '입주', '전월세'] },
 ]
+
+function categorize(title) {
+  for (const r of CATEGORY_RULES) {
+    if (r.words.some((w) => title.includes(w))) return r.cat
+  }
+  return null // 부동산·금융 무관 → 제외
+}
 
 function textOf(v) {
   if (v == null) return ''
@@ -76,9 +89,6 @@ async function fetchFeed(src) {
   }
 }
 
-function isRealEstate(title) {
-  return KEYWORDS.some((k) => title.includes(k))
-}
 
 function loadCache() {
   try {
@@ -105,11 +115,18 @@ export async function fetchLatestNews({ force = false } = {}) {
   }
 
   const all = (await Promise.all(SOURCES.map(fetchFeed))).flat()
+  const seen = new Set() // 같은 기사(정책브리핑+부처 중복) 제거
   const news = all
-    .filter((n) => isRealEstate(n.title))
-    .filter((n) => n.date) // 날짜 없는 항목 제외
+    .map((n) => ({ ...n, category: categorize(n.title) }))
+    .filter((n) => n.category && n.date)
+    .filter((n) => {
+      const key = n.title.slice(0, 30)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 30)
+    .slice(0, 60)
 
   const result = { fetchedAt: Date.now(), count: news.length, news }
   if (news.length > 0) saveCache(result)

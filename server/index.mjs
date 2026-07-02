@@ -59,11 +59,38 @@ app.get('/api/status', (_req, res) => {
   })
 })
 
-// 정책 최신 소식(자동 수집): /api/briefings — 국토부·금융위·정책브리핑 RSS, 6시간 캐시
-app.get('/api/briefings', async (_req, res) => {
+// 정책 최신 소식(자동 수집): /api/briefings[?force=1] — 부처 RSS, 6시간 캐시
+// '청약' 카테고리는 보도자료가 뜸한 시기가 있어 청약홈 실제 분양공고(특별공급 접수 임박순)를 병합한다.
+app.get('/api/briefings', async (req, res) => {
   try {
-    const data = await fetchLatestNews()
-    res.json(data)
+    const data = await fetchLatestNews({ force: req.query.force === '1' })
+    let news = data.news
+
+    try {
+      const subs = await fetchSubscriptions({
+        serviceKey: APPLYHOME_KEY,
+        fromIso: isoDaysFromNow(0),
+        toIsoStr: isoDaysFromNow(45),
+      })
+      if (subs.source === 'applyhome') {
+        const seen = new Set()
+        const subNews = subs.items
+          .filter((e) => e.type === 'special') // 공고당 1건(특별공급 접수일 기준)
+          .filter((e) => (seen.has(e.title) ? false : (seen.add(e.title), true)))
+          .slice(0, 6)
+          .map((e) => ({
+            source: '청약홈',
+            category: '청약',
+            title: `[청약접수 ${e.date.slice(5).replace('-', '.')}] ${e.title} — ${e.region}`,
+            link: e.url || 'https://www.applyhome.co.kr',
+            date: e.date,
+            desc: e.priceNote || '',
+          }))
+        news = [...subNews, ...news].sort((a, b) => b.date.localeCompare(a.date))
+      }
+    } catch {} // 청약홈 실패 시 보도자료만
+
+    res.json({ ...data, count: news.length, news })
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e), news: [] })
   }
