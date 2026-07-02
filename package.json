@@ -50,6 +50,12 @@
       "dist/**",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": "app/.env"
+      }
+    ],
     "extraMetadata": {
       "main": "electron/main.cjs"
     },

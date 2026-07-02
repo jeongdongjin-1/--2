@@ -35,6 +35,28 @@ function isoDaysFromNow(days) {
 }
 
 const app = express()
+app.set('trust proxy', 1) // Render 등 프록시 뒤에서 실제 클라이언트 IP 인식
+
+// ── 간단 rate limit: IP당 분당 120요청 (공개 URL로 data.go.kr/카카오 쿼터 소진 방지) ──
+const rlBuckets = new Map() // ip → { count, resetAt }
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, b] of rlBuckets) if (b.resetAt < now) rlBuckets.delete(ip)
+}, 5 * 60 * 1000).unref?.()
+
+app.use('/api', (req, res, next) => {
+  const ip = req.ip || 'unknown'
+  const now = Date.now()
+  let b = rlBuckets.get(ip)
+  if (!b || b.resetAt < now) {
+    b = { count: 0, resetAt: now + 60_000 }
+    rlBuckets.set(ip, b)
+  }
+  if (++b.count > 120) {
+    return res.status(429).json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.' })
+  }
+  next()
+})
 
 // 키 지문: 값 자체는 노출하지 않고 길이/앞4/뒤4자리만(오입력·공백 진단용)
 function fp(k) {
