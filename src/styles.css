@@ -184,12 +184,21 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .card.over { opacity: 0.72; background: var(--over-bg); }
 .card-title { font-weight: 700; font-size: 15px; }
 .card-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
-.card-links { display: flex; gap: 6px; margin-top: 7px; }
-.card-links a {
-  font-size: 11px; font-weight: 700; text-decoration: none; padding: 3px 9px;
-  border-radius: 999px; border: 1px solid var(--line); background: #fff; color: #4a463d;
+/* 실제 매물 확인 버튼 바 — 카드 하단에 크게 분리 표시 */
+.listing-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.listing-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 800;
+  text-decoration: none; transition: filter .12s;
 }
-.card-links a:hover { border-color: var(--brand); color: var(--brand-dark); background: var(--brand-soft); }
+.listing-btn:hover { filter: brightness(0.95); }
+.listing-btn .logo {
+  width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center;
+  font-size: 12px; font-weight: 900; background: #fff; color: #03c75a;
+}
+.listing-btn.naver { background: #03c75a; color: #fff; }
+.listing-btn.kakao { background: #fee500; color: #191919; }
+.listing-btn.kakao .logo.k { background: #191919; color: #fee500; }
 .map-links { display: flex; gap: 6px; margin-top: 8px; }
 .map-links a {
   font-size: 11px; font-weight: 700; text-decoration: none; padding: 3px 8px;

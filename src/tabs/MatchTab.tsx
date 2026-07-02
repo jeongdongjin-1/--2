@@ -461,24 +461,6 @@ export default function MatchTab() {
                 <div className="card-main">
                   <div className="card-title">{c.apt}</div>
                   <div className="card-meta">{c.dong} · 전용 {c.area}㎡ · {c.buildYear}년 · 최근 {c.lastDeal}</div>
-                  <div className="card-links">
-                    <a
-                      href={naverLandUrl({ dong: c.dong, name: c.apt })}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        openPreciseLink('naver', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), naverLandUrl({ dong: c.dong, name: c.apt }))
-                      }}
-                      target="_blank" rel="noreferrer" title="네이버 부동산 — 단지 좌표로 정확히 열기"
-                    >네이버 매물 ↗</a>
-                    <a
-                      href={kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt })}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        openPreciseLink('kakao', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt }))
-                      }}
-                      target="_blank" rel="noreferrer" title="카카오맵 — 단지 페이지로 정확히 열기"
-                    >카카오맵 ↗</a>
-                  </div>
                 </div>
                 <div className="card-price">
                   <button
@@ -499,6 +481,30 @@ export default function MatchTab() {
               {expandedKey === c.key && (
                 <ComplexDetail data={histories[c.key]} />
               )}
+              <div className="listing-actions" aria-label="실제 매물 확인">
+                <a
+                  className="listing-btn naver"
+                  href={naverLandUrl({ dong: c.dong, name: c.apt })}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openPreciseLink('naver', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), naverLandUrl({ dong: c.dong, name: c.apt }))
+                  }}
+                  target="_blank" rel="noreferrer"
+                >
+                  <span className="logo">N</span> 네이버 매물 보기
+                </a>
+                <a
+                  className="listing-btn kakao"
+                  href={kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt })}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openPreciseLink('kakao', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt }))
+                  }}
+                  target="_blank" rel="noreferrer"
+                >
+                  <span className="logo k">K</span> 카카오맵에서 보기
+                </a>
+              </div>
             </div>
           ))}
           {shown.length === 0 && !loading && cards.length > 0 && (
