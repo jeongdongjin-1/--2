@@ -19,6 +19,7 @@ import { REGIONS, REGION_COORDS, SIDO_LIST, type Region } from '../data/regions'
 import { CURRENT_POLICY } from '../data/policy'
 import { computeAffordability, formatWon, isRegulated } from '../lib/affordability'
 import { loadProfile } from '../lib/profileStore'
+import { fetchLatestTrades } from '../lib/trades'
 
 type Trade = { apt: string; dong: string; area: number; priceWon: number; buildYear: number }
 
@@ -193,6 +194,16 @@ export default function MapTab() {
 
   useEffect(() => {
     fetch('/api/status').then((r) => r.json()).then((s) => setHasKakao(Boolean(s.hasKakaoKey))).catch(() => {})
+  }, [])
+
+  // 마운트 시 데이터가 있는 최신 달로 자동 보정(일일 최신 반영)
+  useEffect(() => {
+    let alive = true
+    fetchLatestTrades(gu !== 'all' ? gu : '11680', 'apt')
+      .then((r) => { if (alive && r.count > 0 && r.dealYmd !== ymd) setYmd(r.dealYmd) })
+      .catch(() => {})
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

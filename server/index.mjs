@@ -136,6 +136,11 @@ app.get('/api/subscription-models', async (req, res) => {
 })
 
 // 실거래가 조회: /api/trades?lawd=11680&ymd=202605&type=apt|offi|villa
+// 실데이터는 1시간 메모리 캐시(일 24회 갱신 = 일일 최신 유지 + data.go.kr 호출 절약).
+// 목업(미승인·오류)은 캐시하지 않아 승인·복구 시 즉시 실데이터로 전환된다.
+const tradesCache = new Map() // key → { at, payload }
+const TRADES_TTL = 60 * 60 * 1000
+
 app.get('/api/trades', async (req, res) => {
   const lawdCode = String(req.query.lawd || '')
   const dealYmd = String(req.query.ymd || '')
@@ -143,9 +148,18 @@ app.get('/api/trades', async (req, res) => {
   if (!/^\d{5}$/.test(lawdCode) || !/^\d{6}$/.test(dealYmd)) {
     return res.status(400).json({ error: 'lawd(5자리), ymd(6자리) 필요' })
   }
+
+  const key = `${type}|${lawdCode}|${dealYmd}`
+  const hit = tradesCache.get(key)
+  if (hit && Date.now() - hit.at < TRADES_TTL) {
+    return res.json({ ...hit.payload, cached: true })
+  }
+
   try {
     const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, type, serviceKey: SERVICE_KEY })
-    res.json({ source, reason, type, lawdCode, dealYmd, count: items.length, items })
+    const payload = { source, reason, type, lawdCode, dealYmd, count: items.length, items }
+    if (source === 'molit') tradesCache.set(key, { at: Date.now(), payload })
+    res.json(payload)
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }

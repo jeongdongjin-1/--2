@@ -59,9 +59,14 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">🏠 집찾기 <span>· 수도권 아파트</span></div>
-        <div className="policy-pill" title={`${CURRENT_POLICY.note}\n출처: ${CURRENT_POLICY.sources.join(', ')}`}>
-          정책 {CURRENT_POLICY.effectiveDate} · DSR {Math.round(CURRENT_POLICY.dsrLimit * 100)}% · 규제 LTV{' '}
-          {Math.round(CURRENT_POLICY.ltv.regulated * 100)}% · 한도 6/4/2억
+        <div className="topbar-right">
+          <span className="date-chip" title="실거래·청약·브리핑은 접속 시 최신 데이터로 갱신됩니다">
+            {new Date().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })} 기준
+          </span>
+          <div className="policy-pill" title={`${CURRENT_POLICY.note}\n출처: ${CURRENT_POLICY.sources.join(', ')}`}>
+            정책 {CURRENT_POLICY.effectiveDate} · DSR {Math.round(CURRENT_POLICY.dsrLimit * 100)}% · 규제 LTV{' '}
+            {Math.round(CURRENT_POLICY.ltv.regulated * 100)}% · 한도 6/4/2억
+          </div>
         </div>
       </header>
 

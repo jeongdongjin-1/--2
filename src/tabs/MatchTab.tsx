@@ -9,6 +9,7 @@ import {
 } from '../lib/affordability'
 import { loadProfile, saveProfile, clearProfile, DEFAULT_PROFILE } from '../lib/profileStore'
 import { evaluateEligibility } from '../lib/eligibility'
+import { fetchLatestTrades, fetchTradesYmd, ymWithOffset } from '../lib/trades'
 
 type Trade = {
   apt: string
@@ -70,13 +71,30 @@ export default function MatchTab() {
 
   const elig = useMemo(() => evaluateEligibility(profile), [profile])
 
+  // 수동 조회 — 입력된 연월 그대로
   async function loadTrades() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/trades?lawd=${lawd}&ymd=${ymd}&type=${propType}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || '조회 실패')
+      const json = await fetchTradesYmd(lawd, ymd, propType)
+      setTrades(json.items)
+      setSource(json.source)
+      setReason(json.reason || '')
+    } catch (e: any) {
+      setError(String(e?.message || e))
+      setTrades([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 자동 최신 — 이번 달부터 거슬러 데이터 있는 첫 달 채택(일일 최신 반영)
+  async function loadLatest() {
+    setLoading(true)
+    setError('')
+    try {
+      const json = await fetchLatestTrades(lawd, propType)
+      setYmd(json.dealYmd)
       setTrades(json.items)
       setSource(json.source)
       setReason(json.reason || '')
@@ -89,7 +107,7 @@ export default function MatchTab() {
   }
 
   useEffect(() => {
-    loadTrades()
+    loadLatest()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propType])
 

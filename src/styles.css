@@ -50,6 +50,8 @@ body {
 }
 .brand { font-weight: 800; font-size: 18px; }
 .brand span { color: var(--muted); font-weight: 600; font-size: 14px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.date-chip { font-size: 11px; font-weight: 700; color: var(--muted); background: var(--panel-soft); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .policy-pill {
   background: #eaf7ef; color: var(--brand-dark); border: 1px solid #c2e7d1;
   padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
@@ -472,6 +474,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 
 /* 아주 좁은 화면 (≤380px) */
 @media (max-width: 380px) {
+  .date-chip { display: none; }
   .filters select { flex-basis: 100%; }
   .tab { padding: 10px 8px; font-size: 12px; }
   .policy-pill { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
