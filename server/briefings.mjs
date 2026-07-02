@@ -108,17 +108,42 @@ function saveCache(data) {
   } catch {}
 }
 
-export async function fetchLatestNews({ force = false } = {}) {
-  if (!force) {
-    const cached = loadCache()
-    if (cached) return { ...cached, cached: true }
-  }
+// 구글 뉴스 RSS 폴백 — korea.kr은 해외 IP를 차단해 클라우드(Render 등)에서 0건이 됨.
+// 구글 뉴스는 전세계 접근 가능. 제목 끝 " - 매체명"에서 출처를 뽑는다.
+const GNEWS_QUERIES = ['부동산 정책', '주택담보대출 규제', '아파트 청약 분양', '한국은행 기준금리']
 
-  const all = (await Promise.all(SOURCES.map(fetchFeed))).flat()
-  const seen = new Set() // 같은 기사(정책브리핑+부처 중복) 제거
-  const news = all
-    .map((n) => ({ ...n, category: categorize(n.title) }))
-    .filter((n) => n.category && n.date)
+async function fetchGoogleNews(query) {
+  try {
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(12000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) budongsan' },
+    })
+    if (!res.ok) return []
+    const json = parser.parse(await res.text())
+    let items = json?.rss?.channel?.item ?? []
+    if (!Array.isArray(items)) items = items ? [items] : []
+    return items.slice(0, 15).map((it) => {
+      const raw = textOf(it.title).trim()
+      const cut = raw.lastIndexOf(' - ')
+      return {
+        source: cut > 0 ? raw.slice(cut + 3).trim().slice(0, 12) : '뉴스',
+        title: cut > 0 ? raw.slice(0, cut).trim() : raw,
+        link: textOf(it.link).trim(),
+        date: toIsoDate(textOf(it.pubDate)),
+        desc: '',
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function dedupeSortSlice(list) {
+  const seen = new Set()
+  return list
+    .map((n) => ({ ...n, category: n.category || categorize(n.title) }))
+    .filter((n) => n.category && n.date && n.title)
     .filter((n) => {
       const key = n.title.slice(0, 30)
       if (seen.has(key)) return false
@@ -127,8 +152,26 @@ export async function fetchLatestNews({ force = false } = {}) {
     })
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 60)
+}
 
-  const result = { fetchedAt: Date.now(), count: news.length, news }
+export async function fetchLatestNews({ force = false } = {}) {
+  if (!force) {
+    const cached = loadCache()
+    if (cached) return { ...cached, cached: true }
+  }
+
+  const all = (await Promise.all(SOURCES.map(fetchFeed))).flat()
+  let news = dedupeSortSlice(all)
+  let via = 'korea.kr'
+
+  // korea.kr 전멸(해외 IP 차단 등) → 구글 뉴스 폴백
+  if (news.length === 0) {
+    const g = (await Promise.all(GNEWS_QUERIES.map(fetchGoogleNews))).flat()
+    news = dedupeSortSlice(g)
+    via = 'google-news'
+  }
+
+  const result = { fetchedAt: Date.now(), count: news.length, via, news }
   if (news.length > 0) saveCache(result)
   return { ...result, cached: false }
 }

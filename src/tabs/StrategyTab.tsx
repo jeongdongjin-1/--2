@@ -100,7 +100,7 @@ export default function StrategyTab() {
                   <li className="pro">분양가가 시세보다 저렴(추정) · 저리 정책대출</li>
                   <li className="pro">특별공급 물량으로 경쟁 완화</li>
                   <li className="con">당첨 불확실 · 입주까지 대기(2~3년)</li>
-                  <li className="con">청약통장·무주택 유지 필요</li>
+                  <li className="con">청약통장·무주택 유지 필요 · 취득세(~3%대) 별도</li>
                 </ul>
               </>
             ) : (

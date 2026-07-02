@@ -17,7 +17,7 @@ function dotIcon(affordable: boolean, precise: boolean) {
 }
 import { REGIONS, REGION_COORDS, SIDO_LIST, type Region } from '../data/regions'
 import { CURRENT_POLICY } from '../data/policy'
-import { computeAffordability, formatWon, isRegulated } from '../lib/affordability'
+import { computeAffordabilityWithCosts, formatWon, isRegulated } from '../lib/affordability'
 import { loadProfile } from '../lib/profileStore'
 import { fetchLatestTrades } from '../lib/trades'
 
@@ -120,7 +120,7 @@ export default function MapTab() {
         const json = await res.json()
         src = json.source || src
         const prices: number[] = (json.items || []).map((t: Trade) => t.priceWon)
-        const afford = computeAffordability(profile, CURRENT_POLICY, isRegulated(r.code, CURRENT_POLICY))
+        const afford = computeAffordabilityWithCosts(profile, CURRENT_POLICY, isRegulated(r.code, CURRENT_POLICY))
         out.push({
           code: r.code, name: r.name, pos: REGION_COORDS[r.code],
           total: prices.length, median: median(prices),
@@ -138,7 +138,7 @@ export default function MapTab() {
     setLoading(true)
     const center = REGION_COORDS[code]
     const regionName = REGIONS.find((r) => r.code === code)?.name ?? ''
-    const afford = computeAffordability(profile, CURRENT_POLICY, isRegulated(code, CURRENT_POLICY))
+    const afford = computeAffordabilityWithCosts(profile, CURRENT_POLICY, isRegulated(code, CURRENT_POLICY))
     try {
       const res = await fetch(`/api/trades?lawd=${code}&ymd=${ymd}`)
       const json = await res.json()
@@ -215,7 +215,7 @@ export default function MapTab() {
   }, [sido, gu, ymd])
 
   const budget = useMemo(
-    () => computeAffordability(profile, CURRENT_POLICY, false).maxPriceWon,
+    () => computeAffordabilityWithCosts(profile, CURRENT_POLICY, false).maxPriceWon,
     [profile]
   )
 
