@@ -25,6 +25,14 @@ type Trade = {
   lawdCode: string
 }
 
+type HistoryMonth = {
+  ymd: string
+  count: number
+  medianWon: number
+  deals: { y: number; m: number; d: number; area: number; floor: number; priceWon: number }[]
+}
+type HistoryData = { source: string; apt: string; months: HistoryMonth[] }
+
 type AptCard = {
   key: string
   apt: string
@@ -66,6 +74,30 @@ export default function MatchTab() {
   const regulated = region ? isRegulated(region.code, CURRENT_POLICY) : false
 
   const [includeCosts, setIncludeCosts] = useState(true)
+
+  // 단지 상세(시세 추이) — 카드 클릭 토글, 이력은 키별 캐시
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const [histories, setHistories] = useState<Record<string, HistoryData | 'loading' | 'error'>>({})
+
+  async function toggleDetail(c: AptCard) {
+    if (expandedKey === c.key) {
+      setExpandedKey(null)
+      return
+    }
+    setExpandedKey(c.key)
+    if (histories[c.key]) return
+    setHistories((h) => ({ ...h, [c.key]: 'loading' }))
+    try {
+      const res = await fetch(
+        `/api/complex-history?lawd=${lawd}&apt=${encodeURIComponent(c.apt)}&type=${propType}&area=${c.area}&months=12`
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setHistories((h) => ({ ...h, [c.key]: json }))
+    } catch {
+      setHistories((h) => ({ ...h, [c.key]: 'error' }))
+    }
+  }
 
   // 취득비용 포함 여부에 따른 최대 구매가 (85㎡ 초과 매물은 농특세로 한도가 더 낮음)
   const afford = useMemo(
@@ -387,27 +419,41 @@ export default function MatchTab() {
 
         <div className="cards">
           {shown.map((c) => (
-            <div key={c.key} className={`card ${c.affordable ? 'affordable' : 'over'}`}>
-              <div className="card-main">
-                <div className="card-title">{c.apt}</div>
-                <div className="card-meta">{c.dong} · 전용 {c.area}㎡ · {c.buildYear}년 · 최근 {c.lastDeal}</div>
-                <div className="card-links">
-                  <a
-                    href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${region?.name ?? ''} ${c.apt}`.trim())}`}
-                    target="_blank" rel="noreferrer" title="네이버 부동산에서 현재 매물 확인"
-                  >네이버 매물 ↗</a>
-                  <a
-                    href={`https://map.kakao.com/?q=${encodeURIComponent(`${region?.name ?? ''} ${c.dong} ${c.apt}`.trim())}`}
-                    target="_blank" rel="noreferrer" title="카카오맵에서 위치·시세 확인"
-                  >카카오맵 ↗</a>
+            <div key={c.key} className={`card ${c.affordable ? 'affordable' : 'over'} ${expandedKey === c.key ? 'expanded' : ''}`}>
+              <div
+                className="card-row"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('a')) return // 링크 클릭은 토글 제외
+                  toggleDetail(c)
+                }}
+                role="button"
+                aria-expanded={expandedKey === c.key}
+                title="클릭하면 최근 12개월 시세 추이를 볼 수 있어요"
+              >
+                <div className="card-main">
+                  <div className="card-title">{c.apt}</div>
+                  <div className="card-meta">{c.dong} · 전용 {c.area}㎡ · {c.buildYear}년 · 최근 {c.lastDeal}</div>
+                  <div className="card-links">
+                    <a
+                      href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${region?.name ?? ''} ${c.apt}`.trim())}`}
+                      target="_blank" rel="noreferrer" title="네이버 부동산에서 현재 매물 확인"
+                    >네이버 매물 ↗</a>
+                    <a
+                      href={`https://map.kakao.com/?q=${encodeURIComponent(`${region?.name ?? ''} ${c.dong} ${c.apt}`.trim())}`}
+                      target="_blank" rel="noreferrer" title="카카오맵에서 위치·시세 확인"
+                    >카카오맵 ↗</a>
+                  </div>
+                </div>
+                <div className="card-price">
+                  <div className="price">{formatWon(c.priceWon)}</div>
+                  <div className={`badge ${c.affordable ? 'ok' : 'no'}`}>
+                    {c.affordable ? '입주 가능' : `${formatWon(c.priceWon - afford.maxPriceWon)} 부족`}
+                  </div>
                 </div>
               </div>
-              <div className="card-price">
-                <div className="price">{formatWon(c.priceWon)}</div>
-                <div className={`badge ${c.affordable ? 'ok' : 'no'}`}>
-                  {c.affordable ? '입주 가능' : `${formatWon(c.priceWon - afford.maxPriceWon)} 부족`}
-                </div>
-              </div>
+              {expandedKey === c.key && (
+                <ComplexDetail data={histories[c.key]} />
+              )}
             </div>
           ))}
           {shown.length === 0 && !loading && cards.length > 0 && (
@@ -444,6 +490,77 @@ function bindingLabel(b: string) {
   if (b === 'DSR') return 'DSR(상환능력)'
   if (b === 'HARD_CAP') return '정책 대출한도'
   return b
+}
+
+// 단지 상세 — 12개월 중위가 추이 차트 + 최근 거래 목록
+function ComplexDetail({ data }: { data: HistoryData | 'loading' | 'error' | undefined }) {
+  if (!data || data === 'loading') return <div className="detail-box loading">시세 이력을 불러오는 중…</div>
+  if (data === 'error') return <div className="detail-box loading">이력을 불러오지 못했어요. 다시 눌러보세요.</div>
+
+  const pts = data.months.filter((m) => m.count > 0)
+  const recentDeals = [...data.months].reverse().flatMap((m) =>
+    m.deals.map((d) => ({ ...d, ymd: m.ymd }))
+  ).slice(0, 6)
+
+  return (
+    <div className="detail-box">
+      <div className="detail-head">
+        <b>최근 12개월 시세 추이</b>
+        <span className="detail-src">{data.source === 'molit' ? '국토부 실거래' : '목업'}</span>
+      </div>
+      {pts.length === 0 ? (
+        <p className="trend-empty">최근 12개월 이 평형의 거래가 없어요.</p>
+      ) : (
+        <TrendChart pts={pts} />
+      )}
+      {recentDeals.length > 0 && (
+        <ul className="deal-list">
+          {recentDeals.map((d, i) => (
+            <li key={i}>
+              <span className="deal-date">{String(d.y).slice(2)}.{String(d.m).padStart(2, '0')}.{String(d.d).padStart(2, '0')}</span>
+              <span className="deal-meta">{d.floor}층 · {d.area}㎡</span>
+              <b>{formatWon(d.priceWon)}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function TrendChart({ pts }: { pts: HistoryMonth[] }) {
+  const W = 560, H = 130, P = 34
+  const vals = pts.map((p) => p.medianWon)
+  const min = Math.min(...vals), max = Math.max(...vals)
+  const x = (i: number) => (pts.length === 1 ? W / 2 : P + ((W - 2 * P) * i) / (pts.length - 1))
+  const y = (v: number) => (max === min ? H / 2 : P + (H - 2 * P) * (1 - (v - min) / (max - min)))
+  const line = pts.map((p, i) => `${x(i)},${y(p.medianWon)}`).join(' ')
+  const eok = (v: number) => (v / 100_000_000).toFixed(1)
+  const first = pts[0], last = pts[pts.length - 1]
+  const diff = last.medianWon - first.medianWon
+  const up = diff > 0
+
+  return (
+    <div className="trend-wrap">
+      <div className={`trend-delta ${up ? 'up' : diff < 0 ? 'down' : ''}`}>
+        {pts.length > 1
+          ? `${first.ymd.slice(4)}월 대비 ${diff === 0 ? '보합' : `${up ? '▲' : '▼'} ${formatWon(Math.abs(diff))}`}`
+          : '거래 1개월'}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="trend-svg" role="img" aria-label="월별 중위 실거래가 추이">
+        <polyline points={line} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={x(i)} cy={y(p.medianWon)} r="3.6" fill="var(--brand)" />
+            <text x={x(i)} y={H - 8} textAnchor="middle" className="tc-month">{Number(p.ymd.slice(4))}월</text>
+            {(i === 0 || i === pts.length - 1 || p.medianWon === max || p.medianWon === min) && (
+              <text x={x(i)} y={y(p.medianWon) - 9} textAnchor="middle" className="tc-val">{eok(p.medianWon)}억</text>
+            )}
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

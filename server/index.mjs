@@ -209,6 +209,17 @@ app.get('/api/subscription-models', async (req, res) => {
 const tradesCache = new Map() // key → { at, payload }
 const TRADES_TTL = 60 * 60 * 1000
 
+// 캐시를 통과하는 실거래 조회(핸들러·이력 엔드포인트 공용)
+async function getTradesCached(type, lawdCode, dealYmd) {
+  const key = `${type}|${lawdCode}|${dealYmd}`
+  const hit = tradesCache.get(key)
+  if (hit && Date.now() - hit.at < TRADES_TTL) return { ...hit.payload, cached: true }
+  const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, type, serviceKey: SERVICE_KEY })
+  const payload = { source, reason, type, lawdCode, dealYmd, count: items.length, items }
+  if (source === 'molit') tradesCache.set(key, { at: Date.now(), payload })
+  return payload
+}
+
 app.get('/api/trades', async (req, res) => {
   const lawdCode = String(req.query.lawd || '')
   const dealYmd = String(req.query.ymd || '')
@@ -216,18 +227,65 @@ app.get('/api/trades', async (req, res) => {
   if (!/^\d{5}$/.test(lawdCode) || !/^\d{6}$/.test(dealYmd)) {
     return res.status(400).json({ error: 'lawd(5자리), ymd(6자리) 필요' })
   }
+  try {
+    res.json(await getTradesCached(type, lawdCode, dealYmd))
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) })
+  }
+})
 
-  const key = `${type}|${lawdCode}|${dealYmd}`
-  const hit = tradesCache.get(key)
-  if (hit && Date.now() - hit.at < TRADES_TTL) {
-    return res.json({ ...hit.payload, cached: true })
+// 단지 시세 이력: /api/complex-history?lawd=11680&apt=한양3&type=apt&area=161.9&months=12
+// 해당 단지(±1㎡ 평형)의 월별 거래를 모아 추이를 반환. 월 데이터는 위 1시간 캐시를 공유.
+app.get('/api/complex-history', async (req, res) => {
+  const lawdCode = String(req.query.lawd || '')
+  const apt = String(req.query.apt || '').trim()
+  const type = ['apt', 'offi', 'villa'].includes(String(req.query.type)) ? String(req.query.type) : 'apt'
+  const area = req.query.area != null && req.query.area !== '' ? Number(req.query.area) : null
+  const months = Math.min(Math.max(Number(req.query.months) || 12, 1), 15)
+  if (!/^\d{5}$/.test(lawdCode) || !apt) {
+    return res.status(400).json({ error: 'lawd(5자리), apt 필요' })
   }
 
+  const now = new Date()
+  const ymds = Array.from({ length: months }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
   try {
-    const { source, reason, items } = await fetchTrades({ lawdCode, dealYmd, type, serviceKey: SERVICE_KEY })
-    const payload = { source, reason, type, lawdCode, dealYmd, count: items.length, items }
-    if (source === 'molit') tradesCache.set(key, { at: Date.now(), payload })
-    res.json(payload)
+    // 동시 3개로 월별 조회(대부분 캐시 히트)
+    const results = new Array(ymds.length)
+    let idx = 0
+    async function worker() {
+      while (idx < ymds.length) {
+        const i = idx++
+        try {
+          results[i] = await getTradesCached(type, lawdCode, ymds[i])
+        } catch {
+          results[i] = null
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: 3 }, worker))
+
+    let source = 'mock'
+    const monthsOut = ymds.map((ymd, i) => {
+      const r = results[i]
+      if (r?.source === 'molit') source = 'molit'
+      const deals = (r?.items || [])
+        .filter((t) => t.apt === apt && (area == null || Math.abs(t.area - area) <= 1))
+        .map((t) => ({ y: t.year, m: t.month, d: t.day, area: t.area, floor: t.floor, priceWon: t.priceWon }))
+        .sort((a, b) => b.m * 100 + b.d - (a.m * 100 + a.d))
+      const prices = deals.map((x) => x.priceWon).sort((a, b) => a - b)
+      const mid = prices.length
+        ? prices.length % 2
+          ? prices[(prices.length - 1) / 2]
+          : (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2
+        : 0
+      return { ymd, count: deals.length, medianWon: Math.round(mid), deals: deals.slice(0, 10) }
+    })
+
+    res.json({ source, apt, area, lawdCode, type, months: monthsOut.reverse() }) // 과거→최신 순
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }
