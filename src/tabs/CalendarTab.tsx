@@ -5,6 +5,7 @@ import {
   type SubscriptionEvent,
 } from '../data/subscription'
 import { formatWon } from '../lib/affordability'
+import { loadSeen, markSeen } from '../lib/seenSubs'
 
 type Model = { ty: string; exclusiveArea: number; pyeong: number; supplyArea: number; hshld: number; priceWon: number }
 
@@ -72,6 +73,7 @@ function ymKey(y: number, m: number) {
 export default function CalendarTab() {
   const [allEvents, setAllEvents] = useState<SubscriptionEvent[]>(SUBSCRIPTION_EVENTS)
   const [source, setSource] = useState<string>('')
+  const [newHmNos, setNewHmNos] = useState<Set<string>>(new Set())
   const [regionFilter, setRegionFilter] = useState<'전체' | '서울' | '경기' | '인천'>('전체')
   const [typeFilter, setTypeFilter] = useState<'전체' | 'special' | 'first'>('전체')
 
@@ -95,7 +97,16 @@ export default function CalendarTab() {
       .then((json) => {
         if (!alive) return
         setSource(json.source || '')
-        if (Array.isArray(json.items) && json.items.length > 0) setAllEvents(json.items)
+        if (Array.isArray(json.items) && json.items.length > 0) {
+          setAllEvents(json.items)
+          // 마지막 방문 이후 새 공고를 NEW로 표시하고, 이번 방문분은 본 것으로 기록
+          if (json.source === 'applyhome') {
+            const seen = loadSeen()
+            const hmNos = json.items.filter((e: SubscriptionEvent) => e.hmNo).map((e: SubscriptionEvent) => String(e.hmNo))
+            setNewHmNos(new Set(hmNos.filter((h: string) => !seen.has(h))))
+            markSeen(hmNos)
+          }
+        }
       })
       .catch(() => {})
     return () => {
@@ -196,7 +207,9 @@ export default function CalendarTab() {
                 >
                   <div className={`cal-date ${dow === 0 ? 'sun' : ''} ${dow === 6 ? 'sat' : ''}`}>{d}</div>
                   {evs.slice(0, 2).map((e, j) => (
-                    <div key={j} className={`ev-chip ${e.type}`}>{e.title.replace(/\s*\(샘플\)/, '')}</div>
+                    <div key={j} className={`ev-chip ${e.type} ${e.hmNo && newHmNos.has(String(e.hmNo)) ? 'new' : ''}`}>
+                      {e.hmNo && newHmNos.has(String(e.hmNo)) ? '🆕 ' : ''}{e.title.replace(/\s*\(샘플\)/, '')}
+                    </div>
                   ))}
                   {evs.length > 2 && <div className="ev-more">+{evs.length - 2}</div>}
                 </div>
@@ -217,6 +230,7 @@ export default function CalendarTab() {
               <div key={i} className="ev-detail">
                 <div className="ev-detail-top">
                   <span className={`type-tag ${e.type}`}>{TYPE_LABEL[e.type]}</span>
+                  {e.hmNo && newHmNos.has(String(e.hmNo)) && <span className="new-tag">NEW</span>}
                   <b>{e.title.replace(/\s*\(샘플\)/, '')}</b>
                 </div>
                 <div className="ev-region">{e.region}{e.priceNote ? ` · ${e.priceNote}` : ''}</div>

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { loadSeen } from './lib/seenSubs'
 import { CURRENT_POLICY } from './data/policy'
 import { formatWon } from './lib/affordability'
 import { hasConsent, setConsent } from './lib/profileStore'
@@ -25,6 +26,31 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 export default function App() {
   const [consent, setConsentState] = useState(hasConsent())
   const [tab, setTab] = useState<TabKey>('match')
+  const [newSubCount, setNewSubCount] = useState(0)
+
+  // 새 청약 공고 알림 — 마지막 방문 이후 새로 뜬 특별공급 공고 수 (캘린더 열면 해제)
+  useEffect(() => {
+    if (!consent) return
+    let alive = true
+    fetch('/api/subscriptions')
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || j.source !== 'applyhome') return
+        const seen = loadSeen()
+        const hmNos = new Set<string>(
+          (j.items || []).filter((e: any) => e.type === 'special' && e.hmNo).map((e: any) => String(e.hmNo))
+        )
+        setNewSubCount([...hmNos].filter((h) => !seen.has(h)).length)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [consent])
+
+  useEffect(() => {
+    if (tab === 'calendar') setNewSubCount(0) // CalendarTab이 markSeen 처리
+  }, [tab])
 
   if (!consent) {
     return (
@@ -82,6 +108,9 @@ export default function App() {
           >
             <span className="tab-icon" aria-hidden="true">{t.icon}</span>
             {t.label}
+            {t.key === 'calendar' && newSubCount > 0 && (
+              <span className="tab-badge" aria-label={`새 청약 공고 ${newSubCount}건`}>{newSubCount}</span>
+            )}
           </button>
         ))}
       </nav>
