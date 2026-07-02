@@ -1,11 +1,34 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BRIEFINGS, type BriefingCategory } from '../data/briefings'
 import { CURRENT_POLICY } from '../data/policy'
 
 const CATS: (BriefingCategory | '전체')[] = ['전체', '규제지역', '대출', '청약', '세제', '금리']
 
+type NewsItem = { source: string; title: string; link: string; date: string; desc: string }
+
 export default function BriefingTab() {
   const [cat, setCat] = useState<BriefingCategory | '전체'>('전체')
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [newsState, setNewsState] = useState<'loading' | 'done' | 'empty'>('loading')
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null)
+
+  // 최신 소식 자동 수집 (국토부·금융위·정책브리핑 RSS, 서버 6시간 캐시)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/briefings')
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return
+        const items: NewsItem[] = Array.isArray(j.news) ? j.news : []
+        setNews(items)
+        setFetchedAt(j.fetchedAt || null)
+        setNewsState(items.length > 0 ? 'done' : 'empty')
+      })
+      .catch(() => alive && setNewsState('empty'))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const list = useMemo(() => {
     const sorted = [...BRIEFINGS].sort((a, b) => b.date.localeCompare(a.date))
@@ -26,6 +49,35 @@ export default function BriefingTab() {
         <p className="today-note">
           기준 시행일 {CURRENT_POLICY.effectiveDate} · 규제지역 서울 25구 + 경기 12곳. 새 대책이 나오면 아래 타임라인 맨 위에 반영됩니다.
         </p>
+      </section>
+
+      {/* 최신 소식 (자동 수집) */}
+      <section className="news-section">
+        <div className="news-head">
+          <h3>📡 최신 소식 <span className="news-auto">자동 업데이트</span></h3>
+          {fetchedAt && (
+            <span className="news-time">
+              {new Date(fetchedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} 수집
+            </span>
+          )}
+        </div>
+        {newsState === 'loading' && <p className="tiny-note">국토부·금융위 보도자료를 불러오는 중…</p>}
+        {newsState === 'empty' && (
+          <p className="tiny-note">지금은 최신 소식을 가져오지 못했어요(피드 일시 오류). 아래 타임라인은 계속 유효합니다.</p>
+        )}
+        {newsState === 'done' && (
+          <ul className="news-list">
+            {news.slice(0, 10).map((n, i) => (
+              <li key={i}>
+                <a href={n.link} target="_blank" rel="noreferrer">
+                  <span className={`news-src src-${n.source}`}>{n.source}</span>
+                  <span className="news-title">{n.title}</span>
+                  <time>{n.date}</time>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* 카테고리 필터 */}

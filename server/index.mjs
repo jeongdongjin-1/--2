@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { fetchTrades } from './molit.mjs'
 import { fetchSubscriptions, fetchSubscriptionModels } from './applyhome.mjs'
 import { geocode } from './geocode.mjs'
+import { fetchLatestNews } from './briefings.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -56,6 +57,16 @@ app.get('/api/status', (_req, res) => {
     },
     now: new Date().toISOString(),
   })
+})
+
+// 정책 최신 소식(자동 수집): /api/briefings — 국토부·금융위·정책브리핑 RSS, 6시간 캐시
+app.get('/api/briefings', async (_req, res) => {
+  try {
+    const data = await fetchLatestNews()
+    res.json(data)
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e), news: [] })
+  }
 })
 
 // 지오코딩: /api/geocode?q=강남구 래미안
