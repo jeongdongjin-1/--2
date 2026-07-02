@@ -31,7 +31,7 @@ type RegionStat = {
 type AptMarker = {
   apt: string; pos: [number, number]; precise: boolean
   priceWon: number; affordable: boolean; count: number
-  areaText: string; dong: string; place?: string
+  areaText: string; dong: string; place?: string; placeUrl?: string
 }
 
 const SIDO_VIEW: Record<Region['sido'], { center: [number, number]; zoom: number }> = {
@@ -163,6 +163,7 @@ export default function MapTab() {
           let pos = jitter(center, apt)
           let precise = false
           let place: string | undefined
+          let placeUrl: string | undefined
           try {
             const g = await fetch(`/api/geocode?q=${encodeURIComponent(`${regionName} ${apt}`)}`)
             const gj = await g.json()
@@ -170,6 +171,7 @@ export default function MapTab() {
               pos = [gj.result.lat, gj.result.lng]
               precise = true
               place = gj.result.place
+              placeUrl = gj.result.placeUrl || undefined
             }
           } catch {}
           const areaText =
@@ -177,7 +179,7 @@ export default function MapTab() {
               ? `${Math.min(...areas)}~${Math.max(...areas)}㎡`
               : `${areas[0]}㎡`
           return {
-            apt, pos, precise, place, dong,
+            apt, pos, precise, place, placeUrl, dong,
             priceWon: med, count: list.length,
             affordable: med <= afford.maxPriceWon,
             areaText,
@@ -305,6 +307,16 @@ export default function MapTab() {
                       </div>
                       {a.place && <div className="reg" style={{ color: '#2563eb' }}>📍 {a.place}</div>}
                       {!a.precise && <div className="reg">📍 근사 위치</div>}
+                      <div className="map-links">
+                        <a
+                          href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${REGIONS.find((r) => r.code === gu)?.name ?? ''} ${a.apt}`.trim())}`}
+                          target="_blank" rel="noreferrer"
+                        >네이버 매물 ↗</a>
+                        <a
+                          href={a.placeUrl || `https://map.kakao.com/?q=${encodeURIComponent(`${a.dong} ${a.apt}`)}`}
+                          target="_blank" rel="noreferrer"
+                        >카카오맵 ↗</a>
+                      </div>
                     </div>
                   </Popup>
                 </Marker>

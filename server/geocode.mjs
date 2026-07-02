@@ -47,7 +47,7 @@ export async function geocode(query, kakaoKey) {
     const json = await res.json()
     const d = json.documents?.[0]
     if (!d) return null
-    const r = { lat: Number(d.y), lng: Number(d.x), place: d.place_name, precise: true }
+    const r = { lat: Number(d.y), lng: Number(d.x), place: d.place_name, placeUrl: d.place_url || null, precise: true }
     cache.set(query, r) // 성공만 캐시
     scheduleWrite()
     return r

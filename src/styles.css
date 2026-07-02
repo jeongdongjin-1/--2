@@ -136,6 +136,18 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .card.over { opacity: 0.72; background: var(--over-bg); }
 .card-title { font-weight: 700; font-size: 15px; }
 .card-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.card-links { display: flex; gap: 6px; margin-top: 7px; }
+.card-links a {
+  font-size: 11px; font-weight: 700; text-decoration: none; padding: 3px 9px;
+  border-radius: 999px; border: 1px solid var(--line); background: #fff; color: #4a463d;
+}
+.card-links a:hover { border-color: var(--brand); color: var(--brand-dark); background: var(--brand-soft); }
+.map-links { display: flex; gap: 6px; margin-top: 8px; }
+.map-links a {
+  font-size: 11px; font-weight: 700; text-decoration: none; padding: 3px 8px;
+  border-radius: 999px; border: 1px solid #ebe6dd; background: #fff; color: #4a463d !important;
+}
+.map-links a:hover { border-color: var(--brand); color: var(--brand-dark) !important; }
 .card-price { text-align: right; }
 .price { font-weight: 800; font-size: 16px; }
 .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; display: inline-block; margin-top: 4px; }

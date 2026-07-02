@@ -391,6 +391,16 @@ export default function MatchTab() {
               <div className="card-main">
                 <div className="card-title">{c.apt}</div>
                 <div className="card-meta">{c.dong} · 전용 {c.area}㎡ · {c.buildYear}년 · 최근 {c.lastDeal}</div>
+                <div className="card-links">
+                  <a
+                    href={`https://new.land.naver.com/search?query=${encodeURIComponent(`${region?.name ?? ''} ${c.apt}`.trim())}`}
+                    target="_blank" rel="noreferrer" title="네이버 부동산에서 현재 매물 확인"
+                  >네이버 매물 ↗</a>
+                  <a
+                    href={`https://map.kakao.com/?q=${encodeURIComponent(`${region?.name ?? ''} ${c.dong} ${c.apt}`.trim())}`}
+                    target="_blank" rel="noreferrer" title="카카오맵에서 위치·시세 확인"
+                  >카카오맵 ↗</a>
+                </div>
               </div>
               <div className="card-price">
                 <div className="price">{formatWon(c.priceWon)}</div>
