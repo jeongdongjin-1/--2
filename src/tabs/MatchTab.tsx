@@ -12,7 +12,7 @@ import { loadProfile, saveProfile, clearProfile, DEFAULT_PROFILE } from '../lib/
 import { evaluateEligibility } from '../lib/eligibility'
 import { fetchLatestTrades, fetchTradesYmd, ymWithOffset } from '../lib/trades'
 import { loadFavorites, toggleFavorite, favKey, type FavItem } from '../lib/favorites'
-import { naverLandUrl, kakaoMapUrl } from '../lib/links'
+import { naverLandUrl, kakaoMapUrl, openPreciseLink, cleanAptName } from '../lib/links'
 
 type Trade = {
   apt: string
@@ -464,11 +464,19 @@ export default function MatchTab() {
                   <div className="card-links">
                     <a
                       href={naverLandUrl({ dong: c.dong, name: c.apt })}
-                      target="_blank" rel="noreferrer" title="네이버 부동산에서 현재 매물 확인"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openPreciseLink('naver', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), naverLandUrl({ dong: c.dong, name: c.apt }))
+                      }}
+                      target="_blank" rel="noreferrer" title="네이버 부동산 — 단지 좌표로 정확히 열기"
                     >네이버 매물 ↗</a>
                     <a
                       href={kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt })}
-                      target="_blank" rel="noreferrer" title="카카오맵에서 정확한 위치 확인(지번 기준)"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openPreciseLink('kakao', `${region?.name ?? ''} ${cleanAptName(c.apt)}`.trim(), kakaoMapUrl({ regionName: region?.name, dong: c.dong, jibun: c.jibun, name: c.apt }))
+                      }}
+                      target="_blank" rel="noreferrer" title="카카오맵 — 단지 페이지로 정확히 열기"
                     >카카오맵 ↗</a>
                   </div>
                 </div>
