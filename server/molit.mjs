@@ -132,8 +132,9 @@ function mockTrades(lawdCode, dealYmd, type = 'apt') {
   for (let i = 0; i < 24; i++) {
     const r = (seed * (i + 7)) % 97
     const area = [24, 33, 39, 49, 59, 74, 84][r % 7]
-    const base = lawdCode.startsWith('116') ? 18 : lawdCode.startsWith('11') ? 11 : 6 // 억 기준 대략
-    const priceEok = (base + (r % 9) + area / 60) * mult
+    const base = lawdCode.startsWith('116') ? 18 : lawdCode.startsWith('11') ? 11 : 6 // 84㎡ 기준 억
+    // 면적 비례 + 약간의 변동 — 소형 오피스텔·빌라가 비현실적으로 비싸지지 않게
+    const priceEok = (base * (area / 84) + (r % 5)) * mult
     out.push({
       apt: type === 'apt' ? `${names[r % names.length]} ${100 + (r % 9)}단지` : `${names[r % names.length]} ${1 + (r % 9)}차`,
       dong: dongs[r % dongs.length],

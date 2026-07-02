@@ -139,6 +139,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .badge.ok { background: var(--ok); color: #fff; }
 .badge.no { background: #f1ede6; color: var(--no); }
 .empty { color: var(--muted); text-align: center; padding: 40px; }
+.empty p { margin: 0 0 14px; line-height: 1.6; }
+.show-all-btn { width: auto; display: inline-block; }
 
 /* ── 버튼 ── */
 .btn-primary {

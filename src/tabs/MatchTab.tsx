@@ -352,11 +352,27 @@ export default function MatchTab() {
               </div>
             </div>
           ))}
-          {shown.length === 0 && !loading && (
+          {shown.length === 0 && !loading && cards.length > 0 && (
             <div className="empty">
-              {onlyAffordable
-                ? '조건에 맞는(살 수 있는) 매물이 없어요. 지역/예산을 조정하거나 필터를 꺼보세요.'
-                : '거래 데이터가 없습니다.'}
+              <p>
+                이 지역 거래 <b>{cards.length}건</b>이 모두 필터에 걸려 숨겨졌어요
+                {onlyAffordable && affordableCount === 0 ? ' (전부 예산 초과)' : ''}.
+              </p>
+              <button
+                className="btn-primary show-all-btn"
+                onClick={() => {
+                  setOnlyAffordable(false)
+                  setAreaFilter('all')
+                  setAgeFilter('all')
+                }}
+              >
+                숨겨진 {cards.length}건 모두 보기
+              </button>
+            </div>
+          )}
+          {shown.length === 0 && !loading && cards.length === 0 && (
+            <div className="empty">
+              {'거래 데이터가 없습니다.'}
             </div>
           )}
         </div>
