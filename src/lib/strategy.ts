@@ -4,7 +4,8 @@
 //   - 청약 루트: 해당 특별공급 + 정책대출로 감당 가능한 분양가(≈시세 환산)
 //   - 성향(시간 여유형/자금 여유형)에 따라 추천
 // ──────────────────────────────────────────────────────────────────────────
-import { computeAffordability, type UserProfile } from './affordability'
+import { computeAffordabilityWithCosts, type UserProfile } from './affordability'
+import type { PurchaseCosts } from './costs'
 import { householdsOf } from './eligibility'
 import { LOAN_PRODUCTS, type Household } from '../data/benefits'
 import type { PolicyRule } from '../data/policy'
@@ -20,6 +21,7 @@ export type BuyRoute = {
   ownCapitalWon: number // 필요 자기자본(= 현금 전액)
   loanWon: number // 대출액(비규제 기준)
   binding: string
+  costs: PurchaseCosts // 비규제 최대가 기준 취득비용(취득세·중개보수 등)
 }
 
 export type SubscribeRoute = {
@@ -67,15 +69,16 @@ export function analyzeStrategy(
 ): StrategyResult {
   const cash = Math.max(0, profile.cashAssetsWon)
 
-  // ── 매매 루트 ──
-  const buyReg = computeAffordability(profile, policy, true)
-  const buyNon = computeAffordability(profile, policy, false)
+  // ── 매매 루트 (취득세·중개보수 등 부대비용 반영) ──
+  const buyReg = computeAffordabilityWithCosts(profile, policy, true)
+  const buyNon = computeAffordabilityWithCosts(profile, policy, false)
   const buy: BuyRoute = {
     maxPriceRegulatedWon: buyReg.maxPriceWon,
     maxPriceNonRegulatedWon: buyNon.maxPriceWon,
     ownCapitalWon: cash,
     loanWon: buyNon.maxLoanWon,
     binding: buyNon.binding,
+    costs: buyNon.costs,
   }
 
   // ── 청약 루트 ── 해당 특별공급 구입자금 상품 중 한도 큰 것

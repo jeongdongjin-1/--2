@@ -5,6 +5,7 @@
 // 출력: 최대 대출가능액, 최대 구매가능가, 한도를 결정한 제약(binding constraint)
 // ──────────────────────────────────────────────────────────────────────────
 import type { PolicyRule } from '../data/policy'
+import { purchaseCosts, type PurchaseCosts } from './costs'
 
 export type UserProfile = {
   annualIncomeWon: number // 연소득(부부합산이면 합산액)
@@ -109,6 +110,58 @@ export function computeAffordability(
     binding,
     dsrLoanCapWon: Math.round(dsrCap),
     monthlyPaymentCapWon: Math.round(monthlyCapacity),
+  }
+}
+
+// 취득비용(취득세·교육세·농특세·중개보수·인지세)까지 고려한 최대 구매가.
+//   조건: cash + loan(price) ≥ price + costs(price)
+// 비용이 가격에 따라 계단식으로 변해도 단조성이 유지되어 이분탐색 그대로 사용.
+export function computeAffordabilityWithCosts(
+  profile: UserProfile,
+  policy: PolicyRule,
+  regulated: boolean,
+  over85 = false
+): AffordabilityResult & { costs: PurchaseCosts } {
+  const ltv = resolveLtv(regulated, profile, policy)
+  const { loanWon: dsrCap, monthlyCapacity } = dsrLoanCap(profile, policy, regulated)
+  const cash = Math.max(0, profile.cashAssetsWon)
+
+  const costsAt = (price: number) =>
+    purchaseCosts({
+      priceWon: price,
+      ownedHouses: profile.ownedHouses,
+      regulated,
+      isFirstTime: profile.isFirstTime,
+      over85,
+    })
+  const loanAt = (price: number) => Math.min(price * ltv, dsrCap, hardCapForPrice(price, policy))
+  const feasible = (price: number) => cash + loanAt(price) >= price + costsAt(price).total
+
+  const maxCap = Math.max(dsrCap, ...policy.loanCapTiers.map((t) => t.capWon))
+  let lo = 0
+  let hi = cash + maxCap + 1
+  for (let i = 0; i < 64; i++) {
+    const mid = (lo + hi) / 2
+    if (feasible(mid)) lo = mid
+    else hi = mid
+  }
+  const maxPrice = lo
+  const cap = hardCapForPrice(maxPrice, policy)
+  const ltvLoan = maxPrice * ltv
+  const maxLoan = Math.min(ltvLoan, dsrCap, cap)
+
+  let binding: AffordabilityResult['binding'] = 'LTV'
+  if (dsrCap <= ltvLoan && dsrCap <= cap) binding = 'DSR'
+  else if (cap <= ltvLoan && cap <= dsrCap) binding = 'HARD_CAP'
+
+  return {
+    maxLoanWon: Math.round(maxLoan),
+    maxPriceWon: Math.round(maxPrice),
+    appliedLtv: ltv,
+    binding,
+    dsrLoanCapWon: Math.round(dsrCap),
+    monthlyPaymentCapWon: Math.round(monthlyCapacity),
+    costs: costsAt(maxPrice),
   }
 }
 

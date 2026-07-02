@@ -119,6 +119,9 @@ export default function StrategyTab() {
             <div className="kv"><span>규제지역 기준</span><b>{formatWon(buy.maxPriceRegulatedWon)}</b></div>
             <div className="kv"><span>대출액</span><b>{formatWon(buy.loanWon)}</b></div>
             <div className="kv"><span>필요 자기자본</span><b>{formatWon(buy.ownCapitalWon)}</b></div>
+            <div className="kv" title={`취득세 ${formatWon(buy.costs.acquisitionTax)} · 교육세 ${formatWon(buy.costs.eduTax)} · 중개보수 ${formatWon(buy.costs.brokerFee)} · 인지세 ${formatWon(buy.costs.stampDuty)}`}>
+              <span>취득비용(예상) ⓘ</span><b>{formatWon(buy.costs.total)}</b>
+            </div>
             <ul className="route-pros">
               <li className="pro">즉시 입주 · 매물 자유 선택</li>
               <li className="pro">청약통장·무주택 유지 부담 없음</li>

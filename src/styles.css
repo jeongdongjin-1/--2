@@ -104,6 +104,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="tab"]:fo
 .kv { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px dashed var(--line); }
 .kv span { color: var(--muted); }
 .binding { margin-top: 12px; padding: 9px 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 9px; font-size: 12px; color: #9a3412; }
+.costs-toggle { margin-top: 8px; font-size: 12px; color: var(--muted); }
 .disclaimer { margin: 10px 0 0; font-size: 11px; line-height: 1.55; color: #94a3b8; }
 .muted-inline { color: var(--muted); font-weight: 600; font-size: 11px; }
 

@@ -3,6 +3,7 @@ import { REGIONS, SIDO_LIST, type Region } from '../data/regions'
 import { CURRENT_POLICY } from '../data/policy'
 import {
   computeAffordability,
+  computeAffordabilityWithCosts,
   formatWon,
   isRegulated,
   type UserProfile,
@@ -64,9 +65,22 @@ export default function MatchTab() {
   const region = useMemo(() => REGIONS.find((r) => r.code === lawd), [lawd])
   const regulated = region ? isRegulated(region.code, CURRENT_POLICY) : false
 
+  const [includeCosts, setIncludeCosts] = useState(true)
+
+  // 취득비용 포함 여부에 따른 최대 구매가 (85㎡ 초과 매물은 농특세로 한도가 더 낮음)
   const afford = useMemo(
-    () => computeAffordability(profile, CURRENT_POLICY, regulated),
-    [profile, regulated]
+    () =>
+      includeCosts
+        ? computeAffordabilityWithCosts(profile, CURRENT_POLICY, regulated, false)
+        : { ...computeAffordability(profile, CURRENT_POLICY, regulated), costs: null },
+    [profile, regulated, includeCosts]
+  )
+  const maxPriceOver85 = useMemo(
+    () =>
+      includeCosts
+        ? computeAffordabilityWithCosts(profile, CURRENT_POLICY, regulated, true).maxPriceWon
+        : afford.maxPriceWon,
+    [profile, regulated, includeCosts, afford.maxPriceWon]
   )
 
   const elig = useMemo(() => evaluateEligibility(profile), [profile])
@@ -128,11 +142,12 @@ export default function MatchTab() {
       priceWon: t.priceWon,
       buildYear: t.buildYear,
       lastDeal: `${t.year}.${String(t.month).padStart(2, '0')}.${String(t.day).padStart(2, '0')}`,
-      affordable: t.priceWon <= afford.maxPriceWon,
+      // 85㎡ 초과는 농특세(0.2%~)로 한도가 조금 낮음
+      affordable: t.priceWon <= (t.area > 85 ? maxPriceOver85 : afford.maxPriceWon),
     }))
     list.sort((a, b) => a.priceWon - b.priceWon)
     return list
-  }, [trades, afford.maxPriceWon])
+  }, [trades, afford.maxPriceWon, maxPriceOver85])
 
   const shown = cards.filter((c) => {
     if (onlyAffordable && !c.affordable) return false
@@ -270,6 +285,21 @@ export default function MatchTab() {
           <div className="kv"><span>자기자본</span><b>{formatWon(profile.cashAssetsWon)}</b></div>
           <div className="kv"><span>적용 LTV</span><b>{Math.round(afford.appliedLtv * 100)}%{regulated ? ' (규제지역)' : ''}</b></div>
           <div className="kv"><span>월 상환 여력</span><b>{formatWon(afford.monthlyPaymentCapWon)}</b></div>
+          {afford.costs && (
+            <div
+              className="kv"
+              title={`취득세 ${formatWon(afford.costs.acquisitionTax)} (세율 ${(afford.costs.acqRate * 100).toFixed(1)}%${afford.costs.firstTimeDiscount ? `, 생애최초 −${formatWon(afford.costs.firstTimeDiscount)}` : ''})
+지방교육세 ${formatWon(afford.costs.eduTax)}
+중개보수(상한) ${formatWon(afford.costs.brokerFee)} · 인지세 ${formatWon(afford.costs.stampDuty)}`}
+            >
+              <span>취득비용(예상) ⓘ</span>
+              <b>{formatWon(afford.costs.total)}</b>
+            </div>
+          )}
+          <label className="check costs-toggle">
+            <input type="checkbox" checked={includeCosts} onChange={(e) => setIncludeCosts(e.target.checked)} />
+            취득세·중개보수 등 부대비용 반영
+          </label>
           <div className="binding">한도 결정: <b>{bindingLabel(afford.binding)}</b></div>
           <p className="disclaimer">
             ⓘ 참고용 추정치입니다. 실제 대출 한도·금리는 은행 심사(소득·신용·부채 등)에 따라 달라지며,
