@@ -123,6 +123,52 @@ app.get('/api/subscriptions', async (req, res) => {
   }
 })
 
+// 군 관련 청약 일정: /api/military-subscriptions
+// 다가오는 특별공급 중 '기관추천' 물량(장기복무 군인·국가유공자 등 대상)이 있는 단지만 추림. 6시간 캐시.
+let milSubsCache = null // { at, payload }
+app.get('/api/military-subscriptions', async (_req, res) => {
+  if (milSubsCache && Date.now() - milSubsCache.at < 6 * 60 * 60 * 1000) {
+    return res.json({ ...milSubsCache.payload, cached: true })
+  }
+  try {
+    const subs = await fetchSubscriptions({
+      serviceKey: APPLYHOME_KEY,
+      fromIso: isoDaysFromNow(-7), // 접수 직전·진행 중 포함
+      toIsoStr: isoDaysFromNow(60),
+    })
+    if (subs.source !== 'applyhome') return res.json({ source: subs.source, items: [] })
+
+    // 특별공급 이벤트를 공고(hmNo) 단위로 유니크하게, 접수일 순 최대 12개
+    const seen = new Set()
+    const candidates = subs.items
+      .filter((e) => e.type === 'special' && e.hmNo)
+      .filter((e) => (seen.has(e.hmNo) ? false : (seen.add(e.hmNo), true)))
+      .slice(0, 12)
+
+    // 공고별 주택형 조회(동시 4개)로 기관추천 세대수 확인
+    const out = []
+    let idx = 0
+    async function worker() {
+      while (idx < candidates.length) {
+        const e = candidates[idx++]
+        try {
+          const m = await fetchSubscriptionModels({ serviceKey: APPLYHOME_KEY, hmNo: e.hmNo })
+          const cnt = m.specialCounts?.['기관추천'] || 0
+          if (cnt > 0) out.push({ ...e, insttCount: cnt })
+        } catch {}
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, worker))
+    out.sort((a, b) => a.date.localeCompare(b.date))
+
+    const payload = { source: 'applyhome', count: out.length, items: out }
+    milSubsCache = { at: Date.now(), payload }
+    res.json(payload)
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e), items: [] })
+  }
+})
+
 // 평형별 분양가 + 특별공급 유형: /api/subscription-models?hmNo=2026000219
 app.get('/api/subscription-models', async (req, res) => {
   const hmNo = String(req.query.hmNo || '')

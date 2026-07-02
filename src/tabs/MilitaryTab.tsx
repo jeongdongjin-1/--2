@@ -1,4 +1,78 @@
+import { useEffect, useState } from 'react'
 import { MILITARY_BENEFITS, MILITARY_COMPARE } from '../data/military'
+
+type MilSub = {
+  date: string
+  title: string
+  region: string
+  address?: string
+  url?: string
+  winnerDate?: string
+  insttCount: number
+}
+
+// 기관추천(군 등) 물량 있는 다가오는 청약 일정
+function MilitarySchedule() {
+  const [items, setItems] = useState<MilSub[]>([])
+  const [state, setState] = useState<'loading' | 'done' | 'empty'>('loading')
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/military-subscriptions')
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return
+        const list: MilSub[] = Array.isArray(j.items) ? j.items : []
+        setItems(list)
+        setState(list.length > 0 ? 'done' : 'empty')
+      })
+      .catch(() => alive && setState('empty'))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return (
+    <section className="panel mil-schedule">
+      <h3>📅 기관추천 물량 있는 청약 일정 <span className="news-auto">자동 업데이트</span></h3>
+      <p className="mil-sched-note">
+        장기복무 군인·국가유공자 등은 <b>기관추천 특별공급</b> 대상이 될 수 있습니다(소속 기관 추천 필요).
+        아래는 접수 임박 분양 중 기관추천 물량이 확인된 단지입니다.
+      </p>
+      {state === 'loading' && <p className="tiny-note">청약홈에서 기관추천 물량을 조회하는 중… (최초 조회는 수 초 걸려요)</p>}
+      {state === 'empty' && (
+        <p className="tiny-note">
+          지금 접수 예정 분양 중 기관추천 물량이 확인되는 단지가 없어요(또는 청약홈 키 미설정). 새 공고가 나오면 자동으로 표시됩니다.
+        </p>
+      )}
+      {state === 'done' && (
+        <ul className="mil-sub-list">
+          {items.map((e, i) => (
+            <li key={i}>
+              <div className="mil-sub-top">
+                <span className="mil-date">{e.date.slice(5).replace('-', '.')} 접수</span>
+                <b>{e.title}</b>
+                <span className="mil-count">기관추천 {e.insttCount}세대</span>
+              </div>
+              <div className="mil-sub-meta">
+                {e.address || e.region}
+                {e.winnerDate ? ` · 발표 ${e.winnerDate.slice(5).replace('-', '.')}` : ''}
+              </div>
+              {e.url && (
+                <a className="ev-link" href={e.url} target="_blank" rel="noreferrer">청약홈 공고 보기 ↗</a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="tiny-note">
+        군인공제회 자체 분양(회원 대상)은{' '}
+        <a href="https://www.mmaa.or.kr" target="_blank" rel="noreferrer">군인공제회(mmaa.or.kr)</a> 공고를 확인하세요.
+        기관추천 신청 절차는 소속 군(국방부·각 군 본부) 추천 공문이 필요합니다.
+      </p>
+    </section>
+  )
+}
 
 const EDGE_LABEL: Record<string, string> = {
   military: '군인공제',
@@ -20,6 +94,8 @@ export default function MilitaryTab() {
           </p>
         </div>
       </section>
+
+      <MilitarySchedule />
 
       <div className="benefit-grid">
         {MILITARY_BENEFITS.map((b, i) => (

@@ -160,12 +160,15 @@ export async function fetchSubscriptionModels({ serviceKey, hmNo }) {
     .filter((m) => m.priceWon > 0)
     .sort((a, b) => a.exclusiveArea - b.exclusiveArea)
 
-  // 특별공급 유형: 모든 모델 합산해 세대수>0인 유형만
+  // 특별공급 유형: 모든 모델 합산해 세대수>0인 유형만 (+유형별 세대수)
   const sums = {}
   for (const r of rows) for (const [f] of SP_FIELDS) sums[f] = (sums[f] || 0) + (Number(r[f]) || 0)
   const specialTypes = SP_FIELDS.filter(([f]) => sums[f] > 0).map(([, label]) => label)
+  const specialCounts = Object.fromEntries(
+    SP_FIELDS.filter(([f]) => sums[f] > 0).map(([f, label]) => [label, sums[f]])
+  )
 
-  return { source: 'applyhome', models, specialTypes }
+  return { source: 'applyhome', models, specialTypes, specialCounts }
 }
 
 function shiftIso(iso, days) {
