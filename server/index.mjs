@@ -240,6 +240,7 @@ app.get('/api/trades', async (req, res) => {
 app.get('/api/value-picks', async (req, res) => {
   const lawdCode = String(req.query.lawd || '')
   const type = ['apt', 'offi', 'villa'].includes(String(req.query.type)) ? String(req.query.type) : 'apt'
+  const top = Math.min(Math.max(Number(req.query.top) || 20, 5), 60)
   if (!/^\d{5}$/.test(lawdCode)) return res.status(400).json({ error: 'lawd(5자리) 필요' })
 
   try {
@@ -255,7 +256,7 @@ app.get('/api/value-picks', async (req, res) => {
     }
     // 과거→최신 순으로 정렬(추세 계산용)
     monthsData.sort((a, b) => a.ymd.localeCompare(b.ymd))
-    const picks = computeValuePicks(monthsData)
+    const picks = computeValuePicks(monthsData, { top })
     res.json({
       source, type, lawdCode,
       monthsUsed: monthsData.map((m) => m.ymd),

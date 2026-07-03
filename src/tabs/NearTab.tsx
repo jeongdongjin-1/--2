@@ -5,6 +5,7 @@ import { computeAffordabilityWithCosts, formatWon, isRegulated } from '../lib/af
 import { loadProfile } from '../lib/profileStore'
 import { haversineKm, loadWorkplace, saveWorkplace, type Workplace } from '../lib/geo'
 import { naverLandUrl, kakaoMapUrl, openPreciseLink, cleanAptName } from '../lib/links'
+import { AREA_BANDS, matchArea, type AreaBand } from '../lib/areaBands'
 
 type NearPick = {
   apt: string
@@ -48,6 +49,7 @@ export default function NearTab() {
   const [radius, setRadius] = useState<number>(10)
   const [propType, setPropType] = useState<'apt' | 'offi' | 'villa'>('apt')
   const [budgetOnly, setBudgetOnly] = useState(false)
+  const [areaBand, setAreaBand] = useState<AreaBand>('all')
   const [picks, setPicks] = useState<NearPick[]>([])
   const [progress, setProgress] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
@@ -99,9 +101,9 @@ export default function NearTab() {
     for (const gu of candidateGus) {
       setProgress(`${gu.name} 분석 중… (${++done}/${candidateGus.length})`)
       try {
-        const res = await fetch(`/api/value-picks?lawd=${gu.code}&type=${propType}`)
+        const res = await fetch(`/api/value-picks?lawd=${gu.code}&type=${propType}&top=40`)
         const json = await res.json()
-        const top = (json.picks || []).slice(0, 12)
+        const top = (json.picks || []).filter((p: any) => matchArea(p.medianArea, areaBand)).slice(0, 12)
         const located = await runLimited(top, 4, async (p: any) => {
           try {
             const g = await fetch(`/api/geocode?q=${encodeURIComponent(`${gu.name} ${cleanAptName(p.apt)}`)}`)
@@ -134,7 +136,9 @@ export default function NearTab() {
   const budgetFor = (lawd: string) =>
     computeAffordabilityWithCosts(profile, CURRENT_POLICY, isRegulated(lawd, CURRENT_POLICY)).maxPriceWon
 
-  const shown = budgetOnly ? picks.filter((p) => p.medianPrice <= budgetFor(p.lawd)) : picks
+  const shown = picks
+    .filter((p) => matchArea(p.medianArea, areaBand))
+    .filter((p) => !budgetOnly || p.medianPrice <= budgetFor(p.lawd))
 
   return (
     <div className="tab-scroll near-tab">
@@ -188,6 +192,9 @@ export default function NearTab() {
               <option value="apt">🏢 아파트</option>
               <option value="offi">🏬 오피스텔</option>
               <option value="villa">🏘️ 빌라</option>
+            </select>
+            <select aria-label="평수(전용면적)" value={areaBand} onChange={(e) => { setAreaBand(e.target.value as AreaBand); setAnalyzed(false) }}>
+              {AREA_BANDS.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
             </select>
             <button className="btn-primary" onClick={analyze} disabled={analyzing}>
               {analyzing ? '분석 중…' : `반경 ${radius}km 분석`}

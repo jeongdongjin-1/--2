@@ -4,6 +4,7 @@ import { CURRENT_POLICY } from '../data/policy'
 import { computeAffordabilityWithCosts, formatWon, isRegulated } from '../lib/affordability'
 import { loadProfile } from '../lib/profileStore'
 import { naverLandUrl, kakaoMapUrl, openPreciseLink, cleanAptName } from '../lib/links'
+import { AREA_BANDS, matchArea, type AreaBand } from '../lib/areaBands'
 
 type Pick = {
   apt: string
@@ -32,6 +33,7 @@ export default function ValueTab() {
   const [source, setSource] = useState('')
   const [loading, setLoading] = useState(false)
   const [budgetOnly, setBudgetOnly] = useState(false)
+  const [areaBand, setAreaBand] = useState<AreaBand>('all')
 
   const profile = useMemo(() => loadProfile(), [])
   const regions = useMemo(() => REGIONS.filter((r) => r.sido === sido), [sido])
@@ -44,7 +46,7 @@ export default function ValueTab() {
   async function load() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/value-picks?lawd=${lawd}&type=${propType}`)
+      const res = await fetch(`/api/value-picks?lawd=${lawd}&type=${propType}&top=40`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setPicks(json.picks || [])
@@ -62,7 +64,9 @@ export default function ValueTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lawd, propType])
 
-  const shown = budgetOnly ? picks.filter((p) => p.medianPrice <= budget) : picks
+  const shown = picks
+    .filter((p) => matchArea(p.medianArea, areaBand))
+    .filter((p) => !budgetOnly || p.medianPrice <= budget)
 
   return (
     <div className="tab-scroll value-tab">
@@ -93,6 +97,9 @@ export default function ValueTab() {
           <option value="apt">🏢 아파트</option>
           <option value="offi">🏬 오피스텔</option>
           <option value="villa">🏘️ 빌라</option>
+        </select>
+        <select aria-label="평수(전용면적)" value={areaBand} onChange={(e) => setAreaBand(e.target.value as AreaBand)}>
+          {AREA_BANDS.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
         </select>
         <label className="check inline">
           <input type="checkbox" checked={budgetOnly} onChange={(e) => setBudgetOnly(e.target.checked)} />
