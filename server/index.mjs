@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { fetchTrades } from './molit.mjs'
 import { fetchSubscriptions, fetchSubscriptionModels } from './applyhome.mjs'
 import { geocode } from './geocode.mjs'
+import { computeValuePicks } from './valuePicks.mjs'
 import { fetchLatestNews } from './briefings.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -229,6 +230,38 @@ app.get('/api/trades', async (req, res) => {
   }
   try {
     res.json(await getTradesCached(type, lawdCode, dealYmd))
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) })
+  }
+})
+
+// AI 가성비 분석: /api/value-picks?lawd=11680&type=apt
+// 최근 4개월 중 데이터 있는 달(최대 3개월)을 합산해 단지별 가성비 스코어 산출. 월 데이터는 1h 캐시 공유.
+app.get('/api/value-picks', async (req, res) => {
+  const lawdCode = String(req.query.lawd || '')
+  const type = ['apt', 'offi', 'villa'].includes(String(req.query.type)) ? String(req.query.type) : 'apt'
+  if (!/^\d{5}$/.test(lawdCode)) return res.status(400).json({ error: 'lawd(5자리) 필요' })
+
+  try {
+    const now = new Date()
+    const monthsData = []
+    let source = 'mock'
+    for (let i = 0; i < 4 && monthsData.length < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+      const r = await getTradesCached(type, lawdCode, ymd)
+      if (r.source === 'molit') source = 'molit'
+      if (r.items.length > 0) monthsData.push({ ymd, items: r.items })
+    }
+    // 과거→최신 순으로 정렬(추세 계산용)
+    monthsData.sort((a, b) => a.ymd.localeCompare(b.ymd))
+    const picks = computeValuePicks(monthsData)
+    res.json({
+      source, type, lawdCode,
+      monthsUsed: monthsData.map((m) => m.ymd),
+      count: picks.length,
+      picks,
+    })
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }

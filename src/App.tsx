@@ -5,17 +5,19 @@ import { formatWon } from './lib/affordability'
 import { hasConsent, setConsent } from './lib/profileStore'
 import MatchTab from './tabs/MatchTab'
 import MapTab from './tabs/MapTab'
+import ValueTab from './tabs/ValueTab'
 import StrategyTab from './tabs/StrategyTab'
 import BriefingTab from './tabs/BriefingTab'
 import BenefitsTab from './tabs/BenefitsTab'
 import CalendarTab from './tabs/CalendarTab'
 import MilitaryTab from './tabs/MilitaryTab'
 
-type TabKey = 'match' | 'map' | 'strategy' | 'briefing' | 'benefits' | 'calendar' | 'military'
+type TabKey = 'match' | 'map' | 'value' | 'strategy' | 'briefing' | 'benefits' | 'calendar' | 'military'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'match', label: '내가 살 수 있는 집', icon: '🏠' },
   { key: 'map', label: '지도', icon: '🗺️' },
+  { key: 'value', label: 'AI 가성비', icon: '🤖' },
   { key: 'strategy', label: '청약·매매 전략', icon: '⚖️' },
   { key: 'briefing', label: '정책 브리핑', icon: '📰' },
   { key: 'benefits', label: '신혼·다자녀 혜택', icon: '💍' },
@@ -118,6 +120,7 @@ export default function App() {
       <div className="tab-body">
         {tab === 'match' && <MatchTab />}
         {tab === 'map' && <MapTab />}
+        {tab === 'value' && <ValueTab />}
         {tab === 'strategy' && <StrategyTab />}
         {tab === 'briefing' && <BriefingTab />}
         {tab === 'benefits' && <BenefitsTab />}
