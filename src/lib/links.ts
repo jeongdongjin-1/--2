@@ -22,12 +22,23 @@ export function naverLandUrl(opts: { dong?: string; name: string; lat?: number; 
 
 // 클릭 시점 정밀 열기 — 지오코딩(서버 캐시)을 거쳐 네이버는 단지 좌표로, 카카오는 단지 페이지로 직행.
 // 팝업 차단을 피하려고 사용자 제스처 안에서 창을 먼저 열고(location 나중 설정) 실패 시 폴백 URL 사용.
+// ⚠️ window.open에 'noopener' 피처를 주면 크롬이 창 참조 대신 null을 반환해
+//    이후 w.location 설정이 불가능 → about:blank 빈 화면만 남는 버그가 있었음.
+//    → 참조를 받아서 opener만 수동으로 끊는 방식으로 수정.
 export async function openPreciseLink(
   kind: 'naver' | 'kakao',
   query: string, // 지오코딩 검색어: "강남구 대우아이빌멤버스" 형태
   fallbackUrl: string
 ) {
-  const w = window.open('about:blank', '_blank', 'noopener')
+  const w = window.open('', '_blank')
+  if (w) {
+    try { w.opener = null } catch {} // noopener와 동일한 보안 효과
+    try {
+      w.document.write(
+        '<title>이동 중…</title><p style="font:14px/1.6 sans-serif;color:#666;margin:28px">매물 페이지로 이동 중입니다…</p>'
+      )
+    } catch {}
+  }
   let url = fallbackUrl
   try {
     const r = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
@@ -43,8 +54,13 @@ export async function openPreciseLink(
   } catch {
     // 지오코딩 실패 → 폴백 URL 그대로
   }
-  if (w) w.location.href = url
-  else window.open(url, '_blank', 'noopener') // 창 선오픈이 막힌 경우
+  if (w && !w.closed) {
+    w.location.href = url
+  } else {
+    // 창 선오픈이 차단된 경우 — 사용자 제스처 밖이라 막힐 수 있어 최후 수단
+    const w2 = window.open(url, '_blank')
+    if (w2) try { w2.opener = null } catch {}
+  }
 }
 
 // 카카오맵 — 지오코딩된 장소 페이지 > 지번 주소 검색 > 동+이름 검색 순으로 정확도 우선

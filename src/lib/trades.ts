@@ -27,19 +27,39 @@ export async function fetchTradesYmd(lawd: string, ymd: string, type: PropType):
   return json
 }
 
-// 이번 달 → 지난달 → 지지난달 순으로 거래가 있는 첫 달을 반환.
-// 실데이터(molit)가 있으면 즉시 채택. 전부 비면 마지막 응답을 반환.
-export async function fetchLatestTrades(lawd: string, type: PropType): Promise<TradesResponse & { probed: boolean }> {
+// 이번 달 → 지난달 → 지지난달 순으로 거래가 있는 달을 찾는다.
+// 실거래 신고는 계약 후 30일 이내라 이번 달 데이터는 며칠치만 있는 경우가 많음 →
+// 최신 달 거래가 적으면(20건 미만) 직전 달과 합쳐서 보여준다(mergedYmds에 표시).
+export async function fetchLatestTrades(
+  lawd: string,
+  type: PropType
+): Promise<TradesResponse & { probed: boolean; mergedYmds?: string[] }> {
+  const found: TradesResponse[] = []
   let last: TradesResponse | null = null
-  for (let off = 0; off <= 2; off++) {
+  for (let off = 0; off <= 3 && found.length < 2; off++) {
     const ymd = ymWithOffset(off)
     try {
       const r = await fetchTradesYmd(lawd, ymd, type)
       last = r
-      if (r.count > 0) return { ...r, probed: true }
+      if (r.count > 0) found.push(r)
+      // 최신 달에 거래가 충분하면 더 찾을 필요 없음
+      if (found.length === 1 && r.count >= 20) break
     } catch {
       // 다음 달로
     }
   }
-  return { ...(last ?? { source: 'mock', type, lawdCode: lawd, dealYmd: ymWithOffset(1), count: 0, items: [] }), probed: true }
+  if (found.length === 0) {
+    return { ...(last ?? { source: 'mock', type, lawdCode: lawd, dealYmd: ymWithOffset(1), count: 0, items: [] }), probed: true }
+  }
+  const newest = found[0]
+  if (newest.count >= 20 || found.length === 1) return { ...newest, probed: true }
+  // 최신 달이 빈약하면 직전 달과 합산(카드는 단지·평형별 최신 거래만 남으므로 안전)
+  const older = found[1]
+  return {
+    ...newest,
+    count: newest.items.length + older.items.length,
+    items: [...newest.items, ...older.items],
+    probed: true,
+    mergedYmds: [older.dealYmd, newest.dealYmd], // 과거 → 최신
+  }
 }

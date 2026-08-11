@@ -61,6 +61,8 @@ export default function MatchTab() {
   const [ymd, setYmd] = useState(recentYmd())
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(false)
+  const [slowHint, setSlowHint] = useState(false) // 무료 서버 콜드스타트 안내
+  const [periodLabel, setPeriodLabel] = useState<string | null>(null) // 두 달 합산 시 "7~8월" 라벨
   const [source, setSource] = useState<string>('')
   const [reason, setReason] = useState<string>('')
   const [error, setError] = useState('')
@@ -140,10 +142,18 @@ export default function MatchTab() {
 
   const elig = useMemo(() => evaluateEligibility(profile), [profile])
 
+  // 무료 서버(Render)는 15분 이상 접속이 없으면 잠들어 첫 응답이 최대 1분쯤 걸림 → 5초 넘으면 안내 표시
+  function startSlowTimer() {
+    setSlowHint(false)
+    return window.setTimeout(() => setSlowHint(true), 5000)
+  }
+
   // 수동 조회 — 입력된 연월 그대로
   async function loadTrades() {
     setLoading(true)
     setError('')
+    setPeriodLabel(null)
+    const t = startSlowTimer()
     try {
       const json = await fetchTradesYmd(lawd, ymd, propType)
       setTrades(json.items)
@@ -153,24 +163,35 @@ export default function MatchTab() {
       setError(String(e?.message || e))
       setTrades([])
     } finally {
+      clearTimeout(t)
+      setSlowHint(false)
       setLoading(false)
     }
   }
 
-  // 자동 최신 — 이번 달부터 거슬러 데이터 있는 첫 달 채택(일일 최신 반영)
+  // 자동 최신 — 이번 달부터 거슬러 최신 데이터 채택. 최신 달이 빈약하면 직전 달과 합산 표시.
   async function loadLatest() {
     setLoading(true)
     setError('')
+    const t = startSlowTimer()
     try {
       const json = await fetchLatestTrades(lawd, propType)
       setYmd(json.dealYmd)
       setTrades(json.items)
       setSource(json.source)
       setReason(json.reason || '')
+      if (json.mergedYmds && json.mergedYmds.length === 2) {
+        const [a, b] = json.mergedYmds
+        setPeriodLabel(`${b.slice(0, 4)}년 ${Number(a.slice(4, 6))}~${Number(b.slice(4, 6))}월`)
+      } else {
+        setPeriodLabel(null)
+      }
     } catch (e: any) {
       setError(String(e?.message || e))
       setTrades([])
     } finally {
+      clearTimeout(t)
+      setSlowHint(false)
       setLoading(false)
     }
   }
@@ -426,8 +447,14 @@ export default function MatchTab() {
 
         <div className="result-head">
           <div>
-            <b>{region?.name}</b> · {ymd.slice(0, 4)}년 {ymd.slice(4, 6)}월 <span className="muted-inline">실거래</span> ·
-            총 {cards.length}건 중 <b className="ok">{affordableCount}건</b> 입주 가능
+            {loading ? (
+              <>조회 중… {slowHint && <span className="muted-inline">(잠자던 무료 서버를 깨우는 중이에요 — 첫 조회는 최대 1분 걸릴 수 있어요)</span>}</>
+            ) : (
+              <>
+                <b>{region?.name}</b> · {periodLabel ?? `${ymd.slice(0, 4)}년 ${ymd.slice(4, 6)}월`} <span className="muted-inline">실거래</span> ·
+                총 {cards.length}건 중 <b className="ok">{affordableCount}건</b> 입주 가능
+              </>
+            )}
           </div>
           <div className="source">
             {source === 'mock'
